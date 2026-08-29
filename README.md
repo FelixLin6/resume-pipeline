@@ -44,10 +44,14 @@ so always `git pull` before editing locally.
 ## Map of the run (one day)
 
 scheduler (13:15 PT) → main session launches the Opus subagent → read newest
-SWElist email over IMAP → per posting: follow link → Simplify chips or JD-text
-keywords → facts-only triage (degree/term/company-exclusion drops only; fit
-judgment stays with Felix) → record in jd-skills dataset → tailor via
-apply-skills.js → copy PDF into resume-drops day folder → auto-apply through the
-browser component (park account-walled/CAPTCHA/unreachable) → inbox verification
-(submission ↔ confirmation-email reconciliation, both directions) → day README
-ledger (Applications filed / Needs you) → push → one summary DM.
+SWElist email over IMAP → visit every JD link (capture triage facts + skills in
+one pass) → facts-only triage into the day's FINAL apply list
+(degree/term/US-location/company-exclusion drops only; fit judgment stays with
+Felix) — no tailoring before the list is settled → per job, end to end: record
+in jd-skills dataset → tailor via apply-skills.js (JD skills first, snapshot
+filler after) → copy PDF into resume-drops day folder → auto-apply through the
+browser component (park account-walled/CAPTCHA/unreachable) → log outcome in
+the day's ledger.md → reconcile at the end against the inbox AND the original
+email list (every row dropped/submitted/failed/parked — no misses) → minimal
+day README (only postings left for Felix: apply link + PDF) → push → one
+summary DM.

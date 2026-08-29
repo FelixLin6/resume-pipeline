@@ -95,7 +95,16 @@ deviates far from what he can back up. `main` stays the honest source of truth;
 > and its reversal addendum.
 
 A scheduler task runs the batch daily, just after Simplify's ~4:12pm ET mail
-cutoff. Procedure on wake:
+cutoff.
+
+> **Order is deliberate (Felix, 2026-08-29 evening):** build the day's FINAL
+> apply list before doing any per-posting work — never record, tailor, or
+> open a browser for a posting that triage will drop. Then each surviving
+> posting is finished end to end (tailor → apply → log outcome) before the
+> next one starts. Reconciliation at the end must cover the ORIGINAL email
+> list, not just what got filed.
+
+Procedure on wake:
 
 1. **Source = the daily SWElist email (Felix, 2026-08-26 — replaces the
    SimplifyJobs-lists sweep).** Felix subscribed felixl0808@gmail.com to
@@ -126,8 +135,13 @@ cutoff. Procedure on wake:
    - **Fallback:** if no new SWElist email exists at run time, run the old
      sweep (`pipeline-check.js check` over both SimplifyJobs lists) instead
      and say so in the daily DM.
-2. **Facts-only triage (Felix, 2026-08-26 — no fit judgment; he decides what
-   to apply to).** Drop a row ONLY for factual disqualification:
+   While visiting each JD, capture BOTH the triage facts (degrees, terms,
+   location, sponsorship) and the skills list (Simplify chips, else jd-text
+   keywords) in that one visit — cache the skills for step 3, but do NOT act
+   on them yet.
+2. **Build the day's FINAL apply list — facts-only triage (Felix, 2026-08-26
+   — no fit judgment; he decides what to apply to).** Drop a row ONLY for
+   factual disqualification:
    - **Degree level:** `degrees` excludes "Bachelor's" (or the `advanced-degree`
      flag is set, or the JD demands MS/PhD). Felix: BS, May 2028.
    - **Degree field:** the JD requires a specific degree he doesn't have (e.g.
@@ -142,65 +156,88 @@ cutoff. Procedure on wake:
      in; when unsure keep it and let him decide). Company-size drops get a
      one-line reason in the daily DM like any other drop. Off-season rows
      without listings enrichment still have the README's own Terms column.
+   - **Location (Felix, 2026-08-29): US only.** Drop postings located
+     entirely outside the US. Any US office or US-remote option → keep.
+     Location unstated → keep (never drop on a guess).
    - Citizenship/sponsorship are NEVER filters — pass them through as marks in
-     the README table.
+     the ledger.
    - **Company exclusions (Felix, 2026-08-26): TikTok / ByteDance — do NOT
      apply this cycle.** Felix has exhausted their 2-applications-per-season
      limit. Drop all TikTok/ByteDance rows with that one-line reason; still
      list them in the daily DM drop report. Revisit next season.
-   Every dropped row goes into the daily DM with a one-line reason — wrong
-   exclusions must be visible to Felix, not silent. Dropped rows are marked
-   seen so they never reappear.
-3. Per selected row, sequentially: take the skills from the step-1 JD visit
-   (Simplify chips when the link resolved to a Simplify page, else the
-   self-extracted `jd-text` keywords) → `jd-skills add` with a cleaned role
-   label → significance-sort → `apply-skills.js --company <Co> --role "<title>"`
-   → copy the archived PDF into `~/zylos/workspace/resume-drops/<YYYY-MM-DD>/`
-   (run-date, droplet TZ) → `pipeline-check.js mark <key>` immediately after
-   each posting (so a crash loses at most the in-flight one).
-   If `jd-skills add` refuses as a duplicate company+role, that's a REPOST
-   under a new posting id — skip the tailoring, mark the key seen, note it in
-   the DM's skipped line. Never `--force` past it in pipeline mode.
-4. Write the day's `README.md` index in the drops folder (table: company, role
-   posting→real, location, flags incl. sponsorship marks, apply link, PDF link,
-   study list; notes for anything unusual), update the root README's "Latest
-   day" link, commit and push `resume-drops`. Push `apply` once (last company).
+   Every dropped row goes into the daily DM AND the day ledger with a
+   one-line reason — wrong exclusions must be visible to Felix, not silent.
+   Dropped rows are marked seen so they never reappear.
+   **The output of this step is the final apply list.** Nothing downstream —
+   `jd-skills add`, tailoring, browser work — starts until the whole list is
+   settled; work is never spent on a posting that won't be applied to.
+3. **Per job on the final list, sequentially — tailor then apply IMMEDIATELY,
+   finishing each posting end to end before starting the next** (Felix,
+   2026-08-29 — auto-apply is no longer a separate later phase):
+   a. Significance-sort the skills cached from the step-1 visit and
+      `jd-skills add` with a cleaned role label. A duplicate company+role
+      refusal is a REPOST under a new posting id — skip the posting, mark the
+      key seen, note it in the DM's skipped line. Never `--force` past it in
+      pipeline mode.
+   b. `apply-skills.js --company <Co> --role "<title>"` — Skills section
+      becomes [JD skills first, then verified-snapshot filler by
+      significance], one page enforced. Copy the archived PDF into
+      `~/zylos/workspace/resume-drops/<YYYY-MM-DD>/` (run-date, droplet TZ).
+   c. **Auto-apply now (Felix's standing OK, 2026-08-26; reinstated
+      2026-08-29 — see `memory/reference/preferences.md` → "Job auto-apply"):**
+      submit via the browser component (Greenhouse/Lever/Ashby; standing auth
+      covers account-walled/email-verification flows). Park Workday / CAPTCHA
+      / human-verification / unreachable postings for Felix with link +
+      screenshot. Profile facts (phone, address, EEO answers, location prefs):
+      `vault/my_second_brain/wiki/felix-resume.md`; source = job
+      board/Simplify.
+   d. Record the outcome in the day folder's `ledger.md` immediately —
+      **submitted** (every field and answer entered, timestamped,
+      confirmation state), **failed** (what broke), or **parked** (what was
+      done, exactly what's left) — then `pipeline-check.js mark <key>` (so a
+      crash loses at most the in-flight posting).
+4. **Reconcile against the source email (Felix, 2026-08-26; coverage check
+   added 2026-08-29).** Read the felixl0808@gmail.com inbox over IMAP
+   (`GMAIL_APP_PASSWORD` in `.env`; also scan felixl@andrew.cmu.edu-era
+   Kodiak mail only if relevant) for application-received / confirmation
+   emails since the previous run, then check three ways:
+   (a) every *submitted* row in `ledger.md` has a matching confirmation
+       email — flag any submission with no confirmation as UNVERIFIED, don't
+       silently trust the form's thank-you page; every confirmation email
+       maps back to a ledger row — one with no entry means the ledger missed
+       something, add it. Note rejections/next-step emails per row.
+   (b) **COVERAGE: every posting row in the day's SWElist email is accounted
+       for exactly once** — dropped (with reason), skipped-repost, submitted,
+       failed, or parked. An unaccounted row is a miss: go back and process
+       it (triage → tailor → apply) before finishing the run.
+   (c) Write the reconciliation results (verified / unverified / unmatched /
+       rejected) into `ledger.md` and the counts into the daily DM.
+5. **Day folder + push.** Two files in
+   `resume-drops/<YYYY-MM-DD>/`:
+   - `ledger.md` — ALL the detail: filed applications with fields, answers,
+     timestamps, confirmation state; drops and skips with reasons;
+     reconciliation results; per-job study lists; anything unusual.
+   - `README.md` — **MINIMAL (Felix, 2026-08-29 — no extraneous information;
+     supersedes the 08-26 two-section README format).** ONLY the postings
+     still left for Felix to apply to himself, one row each: company, role,
+     direct apply link, tailored PDF link, and the one line of what's left
+     (e.g. "Workday account wall"). Nothing else — no full day table, no
+     filed log, no study lists (those live in `ledger.md` and the DM).
    **Apply links point at the posting's own Simplify page**
    (`https://simplify.jobs/p/<uuid>` — straight into the role with autofill),
    never the company page; for email rows whose link never resolved to a
    Simplify page, use the posting's own ATS link from the email.
-5. Prune drops-repo day folders older than 14 days (`git rm`, history keeps
-   them). Delete the day's PDFs from `vault/resumes-sent/` once pushed — the
-   drops repo is the archive.
-6. DM Felix a short summary: N new rows → M selected, the repo day-link
-   (github.com/FelixLin6/resume-drops/tree/main/<date>), aggregate study list,
-   skipped-title list in one line, any fetch failures. One message, not per-job.
-7. **Auto-apply (Felix's standing OK, 2026-08-26; reinstated 2026-08-29 — see
-   `memory/reference/preferences.md` → "Job auto-apply"):** after tailoring,
-   actually submit each straightforward posting via the browser component
-   (Greenhouse/Lever/Ashby; no account wall / CAPTCHA / human verification).
-   Park Workday/CAPTCHA/account-walled ones for Felix with link + screenshot.
-   Profile facts (phone, address, EEO answers, max location prefs — all on
-   file since 08-26): `vault/my_second_brain/wiki/felix-resume.md`; source =
-   job board/Simplify. **The day's README must carry two extra sections**
-   (Felix, 2026-08-26): *Applications filed* — per submission, every field and
-   answer entered, timestamped, confirmation state; *Needs you* — each posting
-   Felix must finish himself (Workday/account/CAPTCHA), with direct apply link,
-   what was already done, and exactly what's left. The daily DM summarizes
-   submitted vs. parked counts and links the day's README.
-8. **Inbox verification (Felix, 2026-08-26):** after auto-apply, read the
-   felixl0808@gmail.com inbox over IMAP (`GMAIL_APP_PASSWORD` in `.env`;
-   also scan felixl@andrew.cmu.edu-era Kodiak mail only if relevant) for
-   application-received / confirmation emails since the previous run, and
-   reconcile three ways: (a) every row in the README's *Applications filed*
-   table has a matching confirmation email — flag any submission with no
-   confirmation as UNVERIFIED, don't silently trust the form's thank-you
-   page; (b) every confirmation email maps to a README row — a confirmation
-   with no README entry means the ledger missed something, add it; (c) note
-   rejections/next-step emails. Put the reconciliation result in the day's
-   README (a "Verified against inbox" column or note per filed row) and in
-   the daily DM (verified / unverified / unmatched counts).
-9. Mark the scheduler task done (command arrives with the task).
+   Update the root README's "Latest day" link, commit and push
+   `resume-drops`. Push `apply` once (last company). Prune drops-repo day
+   folders older than 14 days (`git rm`, history keeps them). Delete the
+   day's PDFs from `vault/resumes-sent/` once pushed — the drops repo is the
+   archive.
+6. DM Felix a short summary: N email rows → M selected, submitted / parked /
+   failed / dropped counts, verified vs UNVERIFIED counts, the repo day-link
+   (github.com/FelixLin6/resume-drops/tree/main/<date>), aggregate study
+   list, skipped-title list in one line, any fetch failures. One message,
+   not per-job.
+7. Mark the scheduler task done (command arrives with the task).
 
 If the batch is large (>25 selected), do the 25 most promising first, note the
 cut in the DM, and continue the rest in the same session afterward.
