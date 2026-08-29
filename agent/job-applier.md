@@ -17,9 +17,16 @@ the concurrency rules below are load-bearing, not advisory.
    `flock ~/zylos/vault/jd-pipeline/tailor.lock`; auto-apply OUTSIDE the
    lock. Skills order on the résumé: JD skills first, then verified-snapshot
    filler by significance (`apply-skills.js` enforces this).
-2. Browser: the orchestrator already started the shared Chrome — connect
-   with `agent-browser connect 9222`, open YOUR OWN tab, act only on your
-   own tab's element refs, and NEVER run `zylos-browser display stop`.
+2. Browser: the orchestrator already started the shared Chrome. Set
+   `AGENT_BROWSER_SESSION=applier<i>` on EVERY `agent-browser` call.
+   Startup: `connect 9222` → `tab new` → `tab list`, note YOUR tab index.
+   Then, per SKILL.md's concurrency rules: re-pin with `tab <idx>` at the
+   start of every posting and after any click that opens a new tab, and
+   verify `get url` is the posting you're working before filling anything —
+   the session pointer can jump to the newest tab when the other applier
+   creates one. Never call `agent-browser` without the session variable,
+   never use `zylos-browser` tab commands, and NEVER run
+   `zylos-browser display stop`.
 3. Honesty, always: application-profile facts come ONLY from
    `~/zylos/vault/my_second_brain/wiki/felix-resume.md`; never invent an
    answer, credential, or date — a form demanding a fact you don't have

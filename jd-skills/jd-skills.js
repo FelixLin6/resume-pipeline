@@ -305,6 +305,18 @@ Paste workflow:
 Data: data.jsonl (append-only; \`raw\` is never rewritten). Aliases: aliases.json.`);
 }
 
+// ---------- concurrency: serialize dataset writers (parallel appliers, 2026-08-29) ----------
+// `add` appends to data.jsonl and does duplicate detection against it; two
+// concurrent adds can interleave lines or both pass the dup check. Own lock
+// file — composes with (never nests inside) the pipeline's outer tailor.lock.
+if (process.argv[2] === 'add' && !process.env.ZYLOS_JD_SKILLS_LOCKED) {
+  const LOCK = path.join(`${process.env.HOME}/zylos/vault/jd-pipeline`, '.jd-skills.lock');
+  const r = require('child_process').spawnSync(
+    'flock', [LOCK, process.execPath, __filename, ...process.argv.slice(2)],
+    { stdio: 'inherit', env: { ...process.env, ZYLOS_JD_SKILLS_LOCKED: '1' } });
+  process.exit(r.status === null ? 1 : r.status);
+}
+
 const { flags, positional } = parseArgs(process.argv.slice(2));
 const cmd = positional.shift();
 switch (cmd) {

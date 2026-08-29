@@ -141,19 +141,42 @@ state):**
   Every applier wraps its record→tailor→PDF-copy→mark critical section in
   `flock ~/zylos/vault/jd-pipeline/tailor.lock -c '…'` — one tailor at a
   time; the browser-apply leg runs outside the lock, in parallel.
-- **One Chrome.** The orchestrator starts the display once
-  (`zylos-browser display start`) before Stage 2; each applier connects to
-  9222 and works in ITS OWN tab, acting only on its own tab's element refs;
-  nobody runs `display stop` mid-run — Stage 3 stops it at the very end.
+- **One Chrome, one agent-browser session per applier, EXPLICIT tab
+  pinning.** The orchestrator starts the display once
+  (`zylos-browser display start`) before Stage 2. Each applier sets
+  `AGENT_BROWSER_SESSION=applier<i>` (its part index) on EVERY
+  `agent-browser` call. Live-tested 2026-08-29: per-session current-tab
+  pointers exist BUT are not durably pinned by `tab new` alone — after
+  another session creates a tab, an unpinned pointer can jump to the
+  newest tab. The working protocol (verified): at startup `connect 9222`,
+  `tab new`, then `tab list` and note YOUR tab's index (tab indices are
+  append-only, so it stays valid); thereafter re-pin with `tab <idx>` at
+  the start of EVERY posting, after any click that spawns a new tab
+  (target=_blank), and verify `get url` matches the posting you are
+  working before filling any field. Never call `agent-browser` bare (the
+  default session is shared between appliers = instant race), never use
+  `zylos-browser` tab/apply commands in an applier (single-session CLI —
+  display start/stop only, orchestrator/Stage 3), and nobody runs
+  `display stop` mid-run — Stage 3 stops it at the very end.
 - **Appliers never push or write shared files.** No applier touches
   `resume-drops` git state, the day `README.md`, or pushes `apply`; each
   writes only its own `ledger-part<i>.md` and copies PDFs (distinct
   per-company filenames) into the day folder. All commits/pushes happen
   once, in Stage 3.
-- **N = min(3, ceil(selected / 4))** parallel appliers (RAM cap); slices
-  are contiguous in email order. If >25 selected, wave one takes the 25
-  most promising, the remainder runs as a second applier wave before
-  Stage 3; note the split in the DM.
+- **N = min(2, ceil(selected / 4))** parallel appliers — hard RAM cap on
+  the current 2GB droplet (shared Chrome + 2 heavy ATS tabs + tectonic
+  already leaves only ~250MB headroom; this box has OOM-rebooted before).
+  Raise the cap to 3–4 ONLY after the pending droplet RAM resize to 4GB.
+  Slices are contiguous in email order. If >25 selected, wave one takes
+  the 25 most promising, the remainder runs as a second applier wave
+  before Stage 3; note the split in the DM.
+- **Defense in depth (2026-08-29):** `apply-skills.js` (whole run),
+  `jd-skills add`, and `pipeline-check mark/seed` also self-serialize via
+  their own internal flock files in `~/zylos/vault/jd-pipeline/` — an
+  applier that forgets the explicit tailor.lock can no longer corrupt
+  state, but the instructional lock above stays mandatory (it also keeps
+  the tailor→PDF-copy sequence atomic, which the per-script locks alone
+  do not).
 
 ### Stage 1 — LIST (agent `jd-list`, one instance)
 

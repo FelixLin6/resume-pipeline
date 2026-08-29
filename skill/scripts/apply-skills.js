@@ -22,6 +22,20 @@ const TECTONIC = `${process.env.HOME}/zylos/workspace/bin/tectonic`;
 const ASSETS = path.join(__dirname, '..', 'assets');
 const SENT_DIR = `${process.env.HOME}/zylos/vault/resumes-sent`;
 
+// ---------- concurrency: one tailoring run at a time (parallel appliers, 2026-08-29) ----------
+// Own lock file, distinct from the pipeline's outer tailor.lock so the two
+// compose instead of deadlocking. Whole-run lock: the my_resume checkout,
+// its apply branch, and resumes-sent/ are all shared mutable state.
+{
+  const LOCK = `${process.env.HOME}/zylos/vault/jd-pipeline/.apply-skills.lock`;
+  if (!process.env.ZYLOS_APPLY_SKILLS_LOCKED) {
+    const r = require('child_process').spawnSync(
+      'flock', [LOCK, process.execPath, __filename, ...process.argv.slice(2)],
+      { stdio: 'inherit', env: { ...process.env, ZYLOS_APPLY_SKILLS_LOCKED: '1' } });
+    process.exit(r.status === null ? 1 : r.status);
+  }
+}
+
 const skillMap = JSON.parse(fs.readFileSync(path.join(ASSETS, 'skill-map.json'), 'utf8'));
 const snapshot = JSON.parse(fs.readFileSync(path.join(ASSETS, 'snapshot.json'), 'utf8'));
 const VERIFIED = new Set(snapshot.verified.map(s => s.toLowerCase()));

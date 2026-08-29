@@ -21,6 +21,20 @@ const { execFileSync } = require('child_process');
 
 const STATE_DIR = `${process.env.HOME}/zylos/vault/jd-pipeline`;
 const STATE = path.join(STATE_DIR, 'state.json');
+
+// ---------- concurrency: serialize state.json writers (parallel appliers, 2026-08-29) ----------
+// mark/seed do read-modify-write on state.json; concurrent callers would lose
+// keys. Own lock file — composes with (never nests inside) the outer tailor.lock.
+{
+  const cmd = process.argv[2];
+  if ((cmd === 'mark' || cmd === 'seed') && !process.env.ZYLOS_PIPELINE_CHECK_LOCKED) {
+    const LOCK = path.join(STATE_DIR, '.state.lock');
+    const r = require('child_process').spawnSync(
+      'flock', [LOCK, process.execPath, __filename, ...process.argv.slice(2)],
+      { stdio: 'inherit', env: { ...process.env, ZYLOS_PIPELINE_CHECK_LOCKED: '1' } });
+    process.exit(r.status === null ? 1 : r.status);
+  }
+}
 // Two lists, same repo and section layout: README.md = Summer 2027,
 // README-Off-Season.md = Fall 2026 / Winter 2027 / Spring 2027 co-ops
 // (Felix wants those terms too — found missing 2026-08-26 via Kodiak Robotics).
