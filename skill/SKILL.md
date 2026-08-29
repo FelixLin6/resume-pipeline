@@ -104,7 +104,58 @@ cutoff.
 > next one starts. Reconciliation at the end must cover the ORIGINAL email
 > list, not just what got filed.
 
-Procedure on wake:
+### Stage architecture (Felix, 2026-08-29 — modular, parallel apply)
+
+The day is three modules chained by the scheduler's MAIN session (the
+orchestrator — subagents cannot spawn subagents). Each module has its own
+agent definition and a file artifact as its contract, so any module can also
+be invoked standalone:
+
+| Stage | Agent | Instances | Input → Output |
+|---|---|---|---|
+| 1 LIST | `jd-list` | 1 | inbox → `joblist.json` (ALL rows: selected + dropped) |
+| 2 APPLY | `job-applier` | N, parallel | disjoint slice of selected rows → `ledger-part<i>.md` + PDFs |
+| 3 RECONCILE | `jd-reconcile` | 1 | joblist + all parts + inbox → `ledger.md`, minimal `README.md`, pushes, DM |
+
+Run artifact — `~/zylos/vault/jd-pipeline/runs/<YYYY-MM-DD>/joblist.json`:
+
+```json
+{ "date": "YYYY-MM-DD", "source": "swelist-email | sweep-fallback",
+  "email": "<subject / IMAP id>",
+  "rows": [ { "key": "<dedup key>", "company": "", "title": "",
+    "role_clean": "", "link": "<link from email>",
+    "apply_link": "<simplify.jobs/p/<uuid> or ATS link>",
+    "skills": ["significance-sorted"], "skills_source": "simplify | jd-text",
+    "status": "selected | dropped | skipped-repost", "drop_reason": null,
+    "flags": { "terms": "", "sponsorship": "", "location": "" } } ] }
+```
+
+Dropped rows STAY in the file — Stage 3's coverage check needs the full
+email list, not just the survivors.
+
+**Concurrency rules (2GB droplet, shared repos — violating these corrupts
+state):**
+
+- **Tailoring is serialized even when applying is parallel.** my_resume's
+  `apply` worktree, jd-skills `data.jsonl`, and `state.json` are shared.
+  Every applier wraps its record→tailor→PDF-copy→mark critical section in
+  `flock ~/zylos/vault/jd-pipeline/tailor.lock -c '…'` — one tailor at a
+  time; the browser-apply leg runs outside the lock, in parallel.
+- **One Chrome.** The orchestrator starts the display once
+  (`zylos-browser display start`) before Stage 2; each applier connects to
+  9222 and works in ITS OWN tab, acting only on its own tab's element refs;
+  nobody runs `display stop` mid-run — Stage 3 stops it at the very end.
+- **Appliers never push or write shared files.** No applier touches
+  `resume-drops` git state, the day `README.md`, or pushes `apply`; each
+  writes only its own `ledger-part<i>.md` and copies PDFs (distinct
+  per-company filenames) into the day folder. All commits/pushes happen
+  once, in Stage 3.
+- **N = min(3, ceil(selected / 4))** parallel appliers (RAM cap); slices
+  are contiguous in email order. If >25 selected, wave one takes the 25
+  most promising, the remainder runs as a second applier wave before
+  Stage 3; note the split in the DM.
+
+### Stage 1 — LIST (agent `jd-list`, one instance)
 
 1. **Source = the daily SWElist email (Felix, 2026-08-26 — replaces the
    SimplifyJobs-lists sweep).** Felix subscribed felixl0808@gmail.com to
@@ -137,8 +188,8 @@ Procedure on wake:
      and say so in the daily DM.
    While visiting each JD, capture BOTH the triage facts (degrees, terms,
    location, sponsorship) and the skills list (Simplify chips, else jd-text
-   keywords) in that one visit — cache the skills for step 3, but do NOT act
-   on them yet.
+   keywords) in that one visit — significance-sort the skills into the row's
+   `skills` field for Stage 2, but do NOT act on them yet.
 2. **Build the day's FINAL apply list — facts-only triage (Felix, 2026-08-26
    — no fit judgment; he decides what to apply to).** Drop a row ONLY for
    factual disqualification:
@@ -155,7 +206,7 @@ Procedure on wake:
      read as: tiny/no-name startups out; established or recognizable companies
      in; when unsure keep it and let him decide). Company-size drops get a
      one-line reason in the daily DM like any other drop. Off-season rows
-     without listings enrichment still have the README's own Terms column.
+     without listings enrichment still have the ledger's own Terms column.
    - **Location (Felix, 2026-08-29): US only.** Drop postings located
      entirely outside the US. Any US office or US-remote option → keep.
      Location unstated → keep (never drop on a guess).
@@ -167,36 +218,59 @@ Procedure on wake:
      list them in the daily DM drop report. Revisit next season.
    Every dropped row goes into the daily DM AND the day ledger with a
    one-line reason — wrong exclusions must be visible to Felix, not silent.
-   Dropped rows are marked seen so they never reappear.
    **The output of this step is the final apply list.** Nothing downstream —
    `jd-skills add`, tailoring, browser work — starts until the whole list is
    settled; work is never spent on a posting that won't be applied to.
-3. **Per job on the final list, sequentially — tailor then apply IMMEDIATELY,
-   finishing each posting end to end before starting the next** (Felix,
-   2026-08-29 — auto-apply is no longer a separate later phase):
-   a. Significance-sort the skills cached from the step-1 visit and
-      `jd-skills add` with a cleaned role label. A duplicate company+role
-      refusal is a REPOST under a new posting id — skip the posting, mark the
-      key seen, note it in the DM's skipped line. Never `--force` past it in
-      pipeline mode.
-   b. `apply-skills.js --company <Co> --role "<title>"` — Skills section
-      becomes [JD skills first, then verified-snapshot filler by
-      significance], one page enforced. Copy the archived PDF into
-      `~/zylos/workspace/resume-drops/<YYYY-MM-DD>/` (run-date, droplet TZ).
-   c. **Auto-apply now (Felix's standing OK, 2026-08-26; reinstated
-      2026-08-29 — see `memory/reference/preferences.md` → "Job auto-apply"):**
-      submit via the browser component (Greenhouse/Lever/Ashby; standing auth
-      covers account-walled/email-verification flows). Park Workday / CAPTCHA
-      / human-verification / unreachable postings for Felix with link +
-      screenshot. Profile facts (phone, address, EEO answers, location prefs):
+3. **Write `joblist.json`** (schema above): every email row present with
+   status, drop reason, cached sorted skills, and apply link. Mark dropped /
+   skipped rows seen now (`pipeline-check.js mark`); selected rows are
+   marked later by their applier. Return a compact summary to the
+   orchestrator: counts (rows / selected / dropped), the joblist path, and
+   the selected keys in email order.
+
+### Stage 2 — APPLY (agent `job-applier` × N, parallel)
+
+Input per instance: the joblist path, its part index `i`, and a disjoint
+slice of selected row keys. Obey the concurrency rules above. **Per assigned
+job, finish end to end (tailor → apply → log) before starting the next**
+(Felix, 2026-08-29 — auto-apply is not a separate later phase):
+
+   a. Under the tailor lock (`flock ~/zylos/vault/jd-pipeline/tailor.lock`):
+      `jd-skills add` with a cleaned role label using the row's sorted
+      skills. A duplicate company+role refusal is a REPOST under a new
+      posting id — mark the key seen, log `skipped-repost` in the part
+      ledger, and move on. Never `--force` past it in pipeline mode.
+   b. Still under the same lock: `apply-skills.js --company <Co> --role
+      "<title>"` — Skills section becomes [JD skills first, then
+      verified-snapshot filler by significance], one page enforced. Copy the
+      archived PDF into `~/zylos/workspace/resume-drops/<YYYY-MM-DD>/`
+      (run-date, droplet TZ), then release the lock.
+   c. **Auto-apply now, outside the lock (Felix's standing OK, 2026-08-26;
+      reinstated 2026-08-29 — see `memory/reference/preferences.md` → "Job
+      auto-apply"):** submit via the browser component in this applier's own
+      tab (Greenhouse/Lever/Ashby; standing auth covers account-walled /
+      email-verification flows). Park Workday / CAPTCHA / human-verification
+      / unreachable postings for Felix with link + screenshot. Profile facts
+      (phone, address, EEO answers, location prefs):
       `vault/my_second_brain/wiki/felix-resume.md`; source = job
       board/Simplify.
-   d. Record the outcome in the day folder's `ledger.md` immediately —
-      **submitted** (every field and answer entered, timestamped,
-      confirmation state), **failed** (what broke), or **parked** (what was
-      done, exactly what's left) — then `pipeline-check.js mark <key>` (so a
-      crash loses at most the in-flight posting).
-4. **Reconcile against the source email (Felix, 2026-08-26; coverage check
+   d. Record the outcome in this instance's `ledger-part<i>.md` in the day
+      folder immediately — **submitted** (every field and answer entered,
+      timestamped, confirmation state), **failed** (what broke), or
+      **parked** (what was done, exactly what's left) — then
+      `pipeline-check.js mark <key>` under the tailor lock (so a crash loses
+      at most the in-flight posting).
+
+Return to the orchestrator: per-key outcomes + study-list lines. Do NOT
+push, do NOT write `README.md` or `ledger.md`, do NOT stop the display.
+
+### Stage 3 — RECONCILE (agent `jd-reconcile`, one instance)
+
+Runs only after ALL appliers have returned.
+
+1. **Merge** every `ledger-part*.md` plus the joblist's dropped/skipped rows
+   into one `ledger.md` (email order), then delete the part files.
+2. **Reconcile against the source email (Felix, 2026-08-26; coverage check
    added 2026-08-29).** Read the felixl0808@gmail.com inbox over IMAP
    (`GMAIL_APP_PASSWORD` in `.env`; also scan felixl@andrew.cmu.edu-era
    Kodiak mail only if relevant) for application-received / confirmation
@@ -206,13 +280,14 @@ Procedure on wake:
        silently trust the form's thank-you page; every confirmation email
        maps back to a ledger row — one with no entry means the ledger missed
        something, add it. Note rejections/next-step emails per row.
-   (b) **COVERAGE: every posting row in the day's SWElist email is accounted
-       for exactly once** — dropped (with reason), skipped-repost, submitted,
-       failed, or parked. An unaccounted row is a miss: go back and process
-       it (triage → tailor → apply) before finishing the run.
+   (b) **COVERAGE: every posting row in the day's `joblist.json` (i.e. the
+       SWElist email) is accounted for exactly once** — dropped (with
+       reason), skipped-repost, submitted, failed, or parked. An unaccounted
+       row is a miss: process it yourself inline (Stage 2 steps a–d, locks
+       included) before finishing the run, and note the miss in the DM.
    (c) Write the reconciliation results (verified / unverified / unmatched /
        rejected) into `ledger.md` and the counts into the daily DM.
-5. **Day folder + push.** Two files in
+3. **Day folder + push.** Two files in
    `resume-drops/<YYYY-MM-DD>/`:
    - `ledger.md` — ALL the detail: filed applications with fields, answers,
      timestamps, confirmation state; drops and skips with reasons;
@@ -232,15 +307,18 @@ Procedure on wake:
    folders older than 14 days (`git rm`, history keeps them). Delete the
    day's PDFs from `vault/resumes-sent/` once pushed — the drops repo is the
    archive.
-6. DM Felix a short summary: N email rows → M selected, submitted / parked /
+4. DM Felix a short summary: N email rows → M selected, submitted / parked /
    failed / dropped counts, verified vs UNVERIFIED counts, the repo day-link
    (github.com/FelixLin6/resume-drops/tree/main/<date>), aggregate study
    list, skipped-title list in one line, any fetch failures. One message,
    not per-job.
-7. Mark the scheduler task done (command arrives with the task).
+5. Stop the browser display (`zylos-browser display stop`) — last one out.
 
-If the batch is large (>25 selected), do the 25 most promising first, note the
-cut in the DM, and continue the rest in the same session afterward.
+The orchestrator (main session) marks the scheduler task done only after
+Stage 3 returns and its summary sanity-checks (README pushed? DM sent?
+coverage clean?). If any stage's agent dies, relaunch it once; if the staged
+path fails twice, fall back to the single `resume-pipeline` agent running
+the whole day solo, and tell Felix the parallel path failed.
 
 ## Guardrails
 

@@ -14,7 +14,10 @@ editable package. **Private repo — contains personal skill/profile data.**
 | `skill/scripts/gh-fill.sh`, `gh-pick.sh`, `sf-pick.sh`, `workday-answer.sh` | 〃 | Per-ATS browser-leg helpers (Greenhouse / SmartRecruiters / Workday) |
 | `skill/assets/snapshot.json` | 〃 | **Honesty baseline** — verified skills traceable to real work. Never padded; additions need evidence or Felix's say-so |
 | `skill/assets/skill-map.json` | 〃 | Normalized skill → Skills-section row mapping |
-| `agent/resume-pipeline.md` | `~/zylos/.claude/agents/resume-pipeline.md` | The Opus-5 background subagent that executes the daily batch |
+| `agent/jd-list.md` | `~/zylos/.claude/agents/` | Stage 1 subagent: SWElist email → JD visits → triage → `joblist.json` |
+| `agent/job-applier.md` | 〃 | Stage 2 subagent, run ×N in parallel: per assigned job, tailor + auto-apply + `ledger-part<i>.md` |
+| `agent/jd-reconcile.md` | 〃 | Stage 3 subagent: merge parts, inbox + coverage verification, minimal README, push, DM |
+| `agent/resume-pipeline.md` | 〃 | Solo-fallback monolith (whole day in one agent) when the staged path fails |
 | `scheduler/daily-task.md` | scheduler DB (`task-mt9kwxxt-hq9wqr`) | Export of the daily trigger's prompt — edit here, then ask Zylos to apply it to the live task |
 | `jd-skills/jd-skills.js`, `aliases.json`, `README.md` | `~/zylos/vault/jd-skills/` | The JD/skills dataset CLI and its vocabulary rules |
 
@@ -43,15 +46,24 @@ so always `git pull` before editing locally.
 
 ## Map of the run (one day)
 
-scheduler (13:15 PT) → main session launches the Opus subagent → read newest
-SWElist email over IMAP → visit every JD link (capture triage facts + skills in
-one pass) → facts-only triage into the day's FINAL apply list
-(degree/term/US-location/company-exclusion drops only; fit judgment stays with
-Felix) — no tailoring before the list is settled → per job, end to end: record
-in jd-skills dataset → tailor via apply-skills.js (JD skills first, snapshot
-filler after) → copy PDF into resume-drops day folder → auto-apply through the
-browser component (park account-walled/CAPTCHA/unreachable) → log outcome in
-the day's ledger.md → reconcile at the end against the inbox AND the original
-email list (every row dropped/submitted/failed/parked — no misses) → minimal
-day README (only postings left for Felix: apply link + PDF) → push → one
-summary DM.
+scheduler (13:15 PT) → main session orchestrates three staged Opus subagents:
+
+1. **LIST** (`jd-list`, ×1): read newest SWElist email over IMAP → visit every
+   JD link (capture triage facts + sorted skills in one pass) → facts-only
+   triage into the day's FINAL apply list (degree/term/US-location/
+   company-exclusion drops only; fit judgment stays with Felix) — no tailoring
+   before the list is settled → write `joblist.json` (all rows, incl. drops).
+2. **APPLY** (`job-applier`, ×N in parallel over disjoint slices; tailoring
+   serialized by flock, one shared Chrome with a tab per applier): per job,
+   end to end — record in jd-skills dataset → tailor via apply-skills.js (JD
+   skills first, snapshot filler after) → copy PDF into resume-drops day
+   folder → auto-apply through the browser component (park
+   account-walled/CAPTCHA/unreachable) → log outcome in `ledger-part<i>.md`.
+3. **RECONCILE** (`jd-reconcile`, ×1): merge parts into `ledger.md` →
+   reconcile against the inbox AND the original email list (every row
+   dropped/submitted/failed/parked — no misses) → minimal day README (only
+   postings left for Felix: apply link + PDF) → push → one summary DM → stop
+   the browser.
+
+If the staged path fails twice, the solo `resume-pipeline` agent runs the
+whole day monolithically.

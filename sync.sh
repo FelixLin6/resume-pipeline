@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 SKILL=~/zylos/.claude/skills/resume
-AGENT=~/zylos/.claude/agents/resume-pipeline.md
+AGENTS=~/zylos/.claude/agents
 JDS=~/zylos/vault/jd-skills
 
 case "${1:-}" in
@@ -15,7 +15,7 @@ case "${1:-}" in
     cp skill/SKILL.md "$SKILL/SKILL.md"
     cp skill/scripts/* "$SKILL/scripts/"
     cp skill/assets/* "$SKILL/assets/"
-    cp agent/resume-pipeline.md "$AGENT"
+    cp agent/*.md "$AGENTS/"
     cp jd-skills/jd-skills.js jd-skills/aliases.json jd-skills/README.md "$JDS/"
     echo "deployed repo -> live"
     ;;
@@ -23,7 +23,7 @@ case "${1:-}" in
     cp "$SKILL/SKILL.md" skill/SKILL.md
     cp "$SKILL"/scripts/* skill/scripts/
     cp "$SKILL"/assets/* skill/assets/
-    cp "$AGENT" agent/resume-pipeline.md
+    for f in agent/*.md; do cp "$AGENTS/$(basename "$f")" "$f"; done
     cp "$JDS/jd-skills.js" "$JDS/aliases.json" "$JDS/README.md" jd-skills/
     echo "exported live -> repo (now commit & push)"
     ;;
