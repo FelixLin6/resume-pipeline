@@ -1,0 +1,22 @@
+{
+  "_comment": "Felix's VERIFIED skill inventory — things traceable to real work in the vault (wiki/felix-resume, wiki/cmu-coursework-record) or already on the résumé's main branch. Two jobs: (1) filler pool, appended after the JD's own skills when there's page room left; (2) the honesty baseline — any skill added from a JD that is NOT in this list is reported as a study item. Keep it accurate; padding it defeats the point. ORDER MATTERS (Felix, 2026-08-26): this array IS the filler priority — major skills first, niche ones last. Fill order is JD keywords (all of them, absolute priority), then this list top-down.",
+  "verified": [
+    "python", "c", "java", "javascript", "typescript", "sql", "go", "rust",
+    "git", "docker", "linux", "postgresql", "gcp", "microsoft azure",
+    "node.js", "pytorch", "tensorflow",
+    "rest api", "api design", "operating systems", "data structures & algorithms",
+    "concurrency", "machine learning", "databases", "testing", "ci-cd", "agile",
+    "authentication", "systems programming", "computer vision",
+    "large language models", "rag", "embeddings", "semantic search",
+    "vector databases", "llm evaluation", "information retrieval", "retrieval",
+    "sqlite", "next.js", "scikit-learn", "numpy", "flutter", "ruby", "shell",
+    "standard ml", "assembly", "gdb", "valgrind", "webhooks", "oauth",
+    "code review", "functional programming"
+  ],
+  "_borderline": {
+    "_comment": "In `verified` but worth knowing the limits of — the vault flags these explicitly.",
+    "go": "On the main-branch résumé already, but the vault has no Go project and 17-350 (Rust) is Fall 2026 while Go is Fall 2027. Confirm before an interview.",
+    "rust": "Same — listed on the résumé, course not taken yet.",
+    "distributed systems": "Deliberately NOT in `verified`. wiki/swe-intern-jd-mapping says claim 'production systems', never 'distributed systems at scale' — his systems are production-grade but startup-scale."
+  }
+}
