@@ -165,6 +165,12 @@ function writeTex(list) {
 
 function pageCount() {
   execFileSync(TECTONIC, ['resume.tex'], { cwd: REPO, stdio: 'pipe' });
+  if (process.platform === 'darwin') {
+    const out = execFileSync('swift', ['-e',
+      'import Foundation; import PDFKit; let d = PDFDocument(url: URL(fileURLWithPath: CommandLine.arguments[1]))!; print(d.pageCount)',
+      PDF], { encoding: 'utf8' });
+    return parseInt(out.trim(), 10);
+  }
   const out = execFileSync('python3', ['-c',
     'import sys;from pdfminer.high_level import extract_pages;print(len(list(extract_pages(sys.argv[1]))))', PDF],
     { encoding: 'utf8' });
