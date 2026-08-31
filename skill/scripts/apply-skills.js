@@ -300,8 +300,17 @@ const archived = path.join(SENT_DIR, `${stamp}-${slug}.pdf`);
 fs.copyFileSync(PDF, archived);
 
 const msg = `apply: skills tailored for ${flags.company}${flags.role ? ' — ' + flags.role : ''}`;
+const commitEnv = {
+  ...process.env,
+  GIT_AUTHOR_NAME: 'FelixLin6',
+  GIT_AUTHOR_EMAIL: '106911338+FelixLin6@users.noreply.github.com',
+  GIT_COMMITTER_NAME: 'zylos',
+  GIT_COMMITTER_EMAIL: '68569236+FelixLin6@users.noreply.github.com',
+};
 execFileSync('git', ['-C', REPO, 'add', 'resume.tex', 'resume.pdf'], { stdio: 'pipe' });
-execFileSync('git', ['-C', REPO, 'commit', '-m', msg], { stdio: 'pipe' });
+execFileSync('git', ['-C', REPO, 'commit', '-m', msg, '-m',
+  'Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>'],
+{ stdio: 'pipe', env: commitEnv });
 
 console.log(`\narchived:  ${archived}`);
 console.log(`committed: ${msg}`);
