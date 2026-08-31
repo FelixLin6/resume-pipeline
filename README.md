@@ -16,7 +16,7 @@ editable package. **Private repo — contains personal skill/profile data.**
 | `skill/assets/skill-map.json` | 〃 | Normalized skill → Skills-section row mapping |
 | `agent/jd-list.md` | `~/zylos/.claude/agents/` | Stage 1 subagent: SWElist email → JD visits → triage → `joblist.json` |
 | `agent/job-applier.md` | 〃 | Stage 2 subagent, run ×N in parallel: per assigned job, tailor + auto-apply + `ledger-part<i>.md` |
-| `agent/jd-reconcile.md` | 〃 | Stage 3 subagent: merge parts, inbox + coverage verification, minimal README, push, DM |
+| `agent/jd-reconcile.md` | 〃 | Stage 3 subagent: merge parts, inbox + coverage verification, lean applied/manual README, push, DM |
 | `agent/resume-pipeline.md` | 〃 | Solo-fallback monolith (whole day in one agent) when the staged path fails |
 | `scheduler/daily-task.md` | scheduler DB (`task-mt9kwxxt-hq9wqr`) | Export of the daily trigger's prompt — edit here, then ask Zylos to apply it to the live task |
 | `jd-skills/jd-skills.js`, `aliases.json`, `README.md` | `~/zylos/vault/jd-skills/` | The JD/skills dataset CLI and its vocabulary rules |
@@ -61,9 +61,9 @@ scheduler (13:15 PT) → main session orchestrates three staged Opus subagents:
    account-walled/CAPTCHA/unreachable) → log outcome in `ledger-part<i>.md`.
 3. **RECONCILE** (`jd-reconcile`, ×1): merge parts into `ledger.md` →
    reconcile against the inbox AND the original email list (every row
-   dropped/submitted/failed/parked — no misses) → minimal day README (only
-   postings left for Felix: apply link + PDF) → push → one summary DM → stop
-   the browser.
+   dropped/submitted/failed/parked — no misses) → lean day README (only
+   successful applications and selected failures requiring Felix) → push →
+   one summary DM → stop the browser.
 
 If the staged path fails twice, the solo `resume-pipeline` agent runs the
 whole day monolithically.

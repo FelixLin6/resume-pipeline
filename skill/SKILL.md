@@ -115,7 +115,7 @@ be invoked standalone:
 |---|---|---|---|
 | 1 LIST | `jd-list` | 1 | inbox → `joblist.json` (ALL rows: selected + dropped) |
 | 2 APPLY | `job-applier` | N, parallel | disjoint slice of selected rows → `ledger-part<i>.md` + PDFs |
-| 3 RECONCILE | `jd-reconcile` | 1 | joblist + all parts + inbox → `ledger.md`, minimal `README.md`, pushes, DM |
+| 3 RECONCILE | `jd-reconcile` | 1 | joblist + all parts + inbox → `ledger.md`, lean two-section `README.md`, pushes, DM |
 
 Run artifact — `~/zylos/vault/jd-pipeline/runs/<YYYY-MM-DD>/joblist.json`:
 
@@ -315,12 +315,19 @@ Runs only after ALL appliers have returned.
    - `ledger.md` — ALL the detail: filed applications with fields, answers,
      timestamps, confirmation state; drops and skips with reasons;
      reconciliation results; per-job study lists; anything unusual.
-   - `README.md` — **MINIMAL (Felix, 2026-08-29 — no extraneous information;
-     supersedes the 08-26 two-section README format).** ONLY the postings
-     still left for Felix to apply to himself, one row each: company, role,
-     direct apply link, tailored PDF link, and the one line of what's left
-     (e.g. "Workday account wall"). Nothing else — no full day table, no
-     filed log, no study lists (those live in `ledger.md` and the DM).
+   - `README.md` — **LEAN DAILY SUMMARY (Felix, 2026-08-31).** It has
+     exactly these compact sections, omitting either section when empty:
+     - `Applied (N)` — one row per successfully submitted application;
+       company and role only.
+     - `Manual (N)` — only selected/applicable postings whose automated
+       submission failed or was parked and that Felix must finish; company,
+       role, direct apply link, tailored PDF link, and one short blocker.
+     Use exactly one bullet per row: `- Company — Role` for Applied and
+     `- Company — [Role](apply URL) — [PDF](PDF URL) — blocker` for Manual.
+     Apart from the date title and section counts, include nothing else. In
+     particular, omit dropped/ineligible/dead/duplicate postings, full form
+     details, timestamps, confirmation detail, study lists, and narrative;
+     those stay in `ledger.md` and the DM.
    **Apply links point at the posting's own Simplify page**
    (`https://simplify.jobs/p/<uuid>` — straight into the role with autofill),
    never the company page; for email rows whose link never resolved to a

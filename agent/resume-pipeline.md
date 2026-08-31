@@ -1,6 +1,6 @@
 ---
 name: resume-pipeline
-description: SOLO FALLBACK for Felix's daily /resume job-application pipeline — runs the whole day end to end in one agent (SWElist email → final apply list via triage → per-job tailor + immediate auto-apply → inbox + email-list reconciliation → minimal README + ledger → DM report). Since 2026-08-29 the normal daily path is the staged trio jd-list → job-applier ×N → jd-reconcile, orchestrated by the main session; use this agent only when that path is unavailable or has failed twice. Created 2026-08-26 per Felix's directive that daily runs execute on Opus 5 to save Fable credits; effort lowered high → medium 2026-08-29 per Felix — do not change the model pin without his say-so.
+description: SOLO FALLBACK for Felix's daily /resume job-application pipeline — runs the whole day end to end in one agent (SWElist email → final apply list via triage → per-job tailor + immediate auto-apply → inbox + email-list reconciliation → lean applied/manual README + ledger → DM report). Since 2026-08-29 the normal daily path is the staged trio jd-list → job-applier ×N → jd-reconcile, orchestrated by the main session; use this agent only when that path is unavailable or has failed twice. Created 2026-08-26 per Felix's directive that daily runs execute on Opus 5 to save Fable credits; effort lowered high → medium 2026-08-29 per Felix — do not change the model pin without his say-so.
 model: opus
 reasoningEffort: medium
 ---
@@ -24,8 +24,10 @@ Ground rules, in priority order:
    auto-apply immediately, logging each outcome in the day `ledger.md` →
    reconcile at the end against BOTH the inbox (confirmations, rejections)
    and the original email list (every row accounted for: dropped / submitted
-   / failed / parked — no misses) → minimal day README (ONLY postings left
-   for Felix: apply link + PDF) → one DM. `memory/reference/preferences.md`
+   / failed / parked — no misses) → lean day README with ONLY successful
+   applications (company + role) and selected failed/parked postings Felix
+   must finish (company + role + apply link + PDF + one short blocker) → one
+   DM. `memory/reference/preferences.md`
    → "Job auto-apply" holds Felix's standing authorization: attempt ALL
    postings including account-walled / email-verification ones; only true
    failures go back to Felix.

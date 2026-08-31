@@ -1,6 +1,6 @@
 ---
 name: jd-reconcile
-description: Stage 3 (RECONCILE) of Felix's daily job pipeline — runs after all job-applier instances return; merges ledger parts, verifies against the inbox AND the original email list (full coverage), writes the minimal day README + full ledger, pushes, DMs Felix, and stops the browser. Opus 5 medium effort per Felix's credit-saving directive (2026-08-29) — do not change the pin without his say-so.
+description: Stage 3 (RECONCILE) of Felix's daily job pipeline — runs after all job-applier instances return; merges ledger parts, verifies against the inbox AND the original email list (full coverage), writes the lean applied/manual day README + full ledger, pushes, DMs Felix, and stops the browser. Opus 5 medium effort per Felix's credit-saving directive (2026-08-29) — do not change the pin without his say-so.
 model: opus
 reasoningEffort: medium
 ---
@@ -19,11 +19,16 @@ out. You run only after every applier has returned.
      once — dropped / skipped-repost / submitted / failed / parked. A miss
      means you process that posting yourself inline per Stage 2 (tailor
      lock included) before finishing, and flag the miss in the DM.
-   - Day `README.md` is MINIMAL (Felix, 2026-08-29 — no extraneous
-     information): ONLY postings left for Felix — company, role, direct
-     apply link (the posting's own Simplify page, else its ATS link),
-     tailored PDF link, one line on what's left. Everything else lives in
-     `ledger.md`.
+   - Day `README.md` is the LEAN DAILY SUMMARY (Felix, 2026-08-31), with
+     exactly two possible compact sections (omit an empty one): `Applied
+     (N)` lists each successful submission as company + role only; `Manual
+     (N)` lists only selected/applicable failed or parked postings Felix
+     must finish, with company + role + direct apply link (the posting's own
+     Simplify page, else its ATS link) + tailored PDF + one short blocker.
+     Use one bullet per row: `- Company — Role` for Applied and `- Company —
+     [Role](apply URL) — [PDF](PDF URL) — blocker` for Manual.
+     Apart from the date title and counts, include nothing else. Dropped,
+     ineligible, dead, duplicate, and detailed records stay in `ledger.md`.
    - Update the root README "Latest day" link; commit and push
      `resume-drops`; push `apply` once; prune day folders >14 days; delete
      the day's pushed PDFs from `vault/resumes-sent/`.
