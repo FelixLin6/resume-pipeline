@@ -271,12 +271,27 @@ job, finish end to end (tailor → apply → log) before starting the next**
    c. **Auto-apply now, outside the lock (Felix's standing OK, 2026-08-26;
       reinstated 2026-08-29 — see `memory/reference/preferences.md` → "Job
       auto-apply"):** submit via the browser component in this applier's own
-      tab (Greenhouse/Lever/Ashby; standing auth covers account-walled /
-      email-verification flows). Park Workday / CAPTCHA / human-verification
-      / unreachable postings for Felix with link + screenshot. Profile facts
-      (phone, address, EEO answers, location prefs):
-      `vault/my_second_brain/wiki/felix-resume.md`; source = job
-      board/Simplify.
+      tab (Greenhouse/Lever/Ashby/SuccessFactors/iCIMS/Workday; standing
+      auth covers account-walled / email-verification flows). Park only
+      CAPTCHA / human-verification walls and unreachable or closed postings
+      for Felix with link + screenshot. Profile facts (phone, address, EEO
+      answers, location prefs): `vault/my_second_brain/wiki/felix-resume.md`;
+      source = job board/Simplify.
+      **Workday is attempted, not parked (Felix, 2026-08-31 — 10 Workday
+      submissions that night).** Per tenant: reuse the account whose
+      credential label is already in `~/zylos/.env` (`# WORKDAY_<TENANT>_
+      PASSWORD=...`), else create one with the pipeline email and record it
+      there before anything else; verification codes via `inbox-scan.py`.
+      School / Field-of-Study pickers are not free text — type the name,
+      then a literal `press Enter` to render results ("Computer Science /
+      Information Technology" where a tenant has no AI entry). "Use My Last
+      Application" autofill is fine but verify the attached PDF is the
+      right file for the posting and re-check every checkbox on the review
+      page. Honour a tenant's stated one-application-per-year policy (bp):
+      submit the best-fit role, park the rest as drafts for Felix. A tenant
+      throwing "Something went wrong" / 429 / "Security Check" walls gets
+      one 60s-spaced retry, then park with that finding (drafts persist
+      server-side, so a later retry resumes where it stopped).
    d. Record the outcome in this instance's `ledger-part<i>.md` in the day
       folder immediately — **submitted** (every field and answer entered,
       timestamped, confirmation state), **failed** (what broke), or
