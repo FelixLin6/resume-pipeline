@@ -36,13 +36,11 @@ out. You run only after every applier has returned.
    `node ~/zylos/.claude/skills/comm-bridge/scripts/c4-send.js` exactly as
    SKILL.md specifies — read `~/zylos/.claude/skills/comm-bridge/SKILL.md`
    before your first send.
-3. Stop the browser before finishing — you are the last one out. Run
-   `zylos-browser display stop`, then VERIFY: `curl -s -m 3
-   localhost:9222/json/version` must return nothing. If CDP still answers,
-   the pipeline Chrome was launched outside the display manager (the Mac's
-   headless Chrome for Testing) — kill its tree explicitly with
-   `pkill -f job-application-profile`, wait 3s, re-check 9222, and note it
-   in your final output. Chrome must not be left running (2GB droplet).
+3. Stop the browser before finishing — you are the last one out:
+   `~/zylos/.claude/skills/resume/scripts/pipeline-browser.sh stop`
+   (per-host stop + verifies CDP 9222 is dead; if it exits non-zero, kill
+   whatever holds 9222 and note it in your final output). Chrome must not
+   be left running (2GB droplet).
 4. Final output to the orchestrator, compact and machine-readable: counts
    (submitted / parked / failed / dropped, verified / UNVERIFIED /
    unmatched), the repo day link, and anything needing Felix.

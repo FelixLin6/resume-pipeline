@@ -142,8 +142,10 @@ state):**
   `flock ~/zylos/vault/jd-pipeline/tailor.lock -c '…'` — one tailor at a
   time; the browser-apply leg runs outside the lock, in parallel.
 - **One Chrome, one agent-browser session per applier, EXPLICIT tab
-  pinning.** The orchestrator starts the display once
-  (`zylos-browser display start`) before Stage 2. Each applier sets
+  pinning.** The orchestrator starts the browser once before Stage 2 via
+  `~/zylos/.claude/skills/resume/scripts/pipeline-browser.sh` `start`
+  (per-host: Mac = headless Chrome for Testing on the dedicated profile;
+  droplet = `zylos-browser display start`). Each applier sets
   `AGENT_BROWSER_SESSION=applier<i>` (its part index) on EVERY
   `agent-browser` call. Live-tested 2026-08-29: per-session current-tab
   pointers exist BUT are not durably pinned by `tab new` alone — after
@@ -357,17 +359,45 @@ Runs only after ALL appliers have returned.
    (github.com/FelixLin6/resume-drops/tree/main/<date>), aggregate study
    list, skipped-title list in one line, any fetch failures. One message,
    not per-job.
-5. Stop the browser (`zylos-browser display stop`) — last one out — then
-   verify `curl -s -m 3 localhost:9222/json/version` returns nothing; if CDP
-   still answers (Chrome launched outside the display manager, e.g. the Mac's
-   headless Chrome for Testing), `pkill -f job-application-profile` and
-   re-check.
+5. Stop the browser — last one out — via
+   `~/zylos/.claude/skills/resume/scripts/pipeline-browser.sh` `stop`
+   (it verifies CDP 9222 is actually dead and fails loudly if not).
 
 The orchestrator (main session) marks the scheduler task done only after
 Stage 3 returns and its summary sanity-checks (README pushed? DM sent?
 coverage clean?). If any stage's agent dies, relaunch it once; if the staged
 path fails twice, fall back to the single `resume-pipeline` agent running
 the whole day solo, and tell Felix the parallel path failed.
+
+## Runtime portability (Codex)
+
+The stages, scripts, and file contracts are runtime-agnostic; only the
+orchestration layer differs. To run the daily pipeline on the Codex runtime:
+
+- **Model pins (Felix, 2026-09-01):** Stage 1 `jd-list` and Stage 3
+  `jd-reconcile` = `gpt-5.6-sol`, reasoning **medium**; Stage 2 `job-applier`
+  = `gpt-5.6-luna`, reasoning **medium** (verified available on this account
+  2026-09-01). Same spend logic as the Claude pins (Opus 5 / Sonnet 5): the
+  expensive model carries triage + coverage judgment, the cheap one drives
+  the browser. The appliers' narrowed free-text rule is what makes the cheap
+  pin safe — do not change either without Felix's say-so.
+- **Agent definitions:** Codex has no `.claude/agents` registry. Spawn each
+  stage as a background agent whose prompt begins: "First read
+  `~/zylos/.claude/agents/<name>.md` and obey it as your system
+  instructions" (ignore its Claude frontmatter; the body is runtime-neutral).
+- **Orchestrator prompt:** use `scheduler/daily-task-codex.md` (repo) — the
+  Codex-vocabulary variant of the scheduler task.
+- **Subagent mechanism:** use Codex's native background-agent capability
+  (`multi_agent`); never pm2 or `codex exec` sidecars. FIRST-RUN CHECKS
+  before trusting a live batch: (a) N≥2 agents actually run in parallel,
+  (b) per-agent model/effort override works at spawn, (c) agent results
+  return compactly (an orchestrator flooded with transcripts kills the run).
+- **Rate limits:** Codex quotas are per OAuth account and every stage shares
+  one account — prefer smaller applier waves; a capped account stalls the
+  whole run, not one stage.
+- **Browser:** identical on both runtimes — `pipeline-browser.sh
+  start|stop|status` (above), `agent-browser` with
+  `AGENT_BROWSER_SESSION=applier<i>`.
 
 ## Guardrails
 

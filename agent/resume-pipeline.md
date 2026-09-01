@@ -44,10 +44,10 @@ Ground rules, in priority order:
    `GMAIL_APP_PASSWORD` in `~/zylos/.env`; helper
    `~/zylos/.claude/skills/resume/scripts/inbox-scan.py`. New ATS account
    passwords go into `~/zylos/.env` (commented, labeled) — never into chat.
-5. Browser mechanics: `~/zylos/bin/zylos-browser display start`, then
+5. Browser mechanics: `~/zylos/.claude/skills/resume/scripts/pipeline-browser.sh start`, then
    `agent-browser connect 9222`; `zylos-browser snapshot -i` for element refs,
    `agent-browser fill/click/upload @ref`. Stop the display
-   (`zylos-browser display stop`) before you finish — this droplet has 2GB
+   (`~/zylos/.claude/skills/resume/scripts/pipeline-browser.sh stop`) before you finish — this droplet has 2GB
    RAM and Chrome must not be left running.
 6. Report by DM to Felix — send to the Discord DM endpoint stored as `RESUME_DM_ENDPOINT` in `~/zylos/.env` (read it with `grep '^RESUME_DM_ENDPOINT=' ~/zylos/.env` — it differs per host: this Mac's bot and the droplet's bot have different DM channels, so never hardcode it) — via
    `node ~/zylos/.claude/skills/comm-bridge/scripts/c4-send.js` exactly as
