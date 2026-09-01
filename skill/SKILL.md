@@ -357,7 +357,11 @@ Runs only after ALL appliers have returned.
    (github.com/FelixLin6/resume-drops/tree/main/<date>), aggregate study
    list, skipped-title list in one line, any fetch failures. One message,
    not per-job.
-5. Stop the browser display (`zylos-browser display stop`) — last one out.
+5. Stop the browser (`zylos-browser display stop`) — last one out — then
+   verify `curl -s -m 3 localhost:9222/json/version` returns nothing; if CDP
+   still answers (Chrome launched outside the display manager, e.g. the Mac's
+   headless Chrome for Testing), `pkill -f job-application-profile` and
+   re-check.
 
 The orchestrator (main session) marks the scheduler task done only after
 Stage 3 returns and its summary sanity-checks (README pushed? DM sent?

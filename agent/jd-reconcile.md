@@ -32,12 +32,17 @@ out. You run only after every applier has returned.
    - Update the root README "Latest day" link; commit and push
      `resume-drops`; push `apply` once; prune day folders >14 days; delete
      the day's pushed PDFs from `vault/resumes-sent/`.
-2. DM Felix one summary (Discord DM endpoint `1511039204791156786`) via
+2. DM Felix one summary — send to the Discord DM endpoint stored as `RESUME_DM_ENDPOINT` in `~/zylos/.env` (read it with `grep '^RESUME_DM_ENDPOINT=' ~/zylos/.env` — it differs per host: this Mac's bot and the droplet's bot have different DM channels, so never hardcode it) — via
    `node ~/zylos/.claude/skills/comm-bridge/scripts/c4-send.js` exactly as
    SKILL.md specifies — read `~/zylos/.claude/skills/comm-bridge/SKILL.md`
    before your first send.
-3. Stop the browser display before finishing (`zylos-browser display stop`)
-   — 2GB droplet, Chrome must not be left running.
+3. Stop the browser before finishing — you are the last one out. Run
+   `zylos-browser display stop`, then VERIFY: `curl -s -m 3
+   localhost:9222/json/version` must return nothing. If CDP still answers,
+   the pipeline Chrome was launched outside the display manager (the Mac's
+   headless Chrome for Testing) — kill its tree explicitly with
+   `pkill -f job-application-profile`, wait 3s, re-check 9222, and note it
+   in your final output. Chrome must not be left running (2GB droplet).
 4. Final output to the orchestrator, compact and machine-readable: counts
    (submitted / parked / failed / dropped, verified / UNVERIFIED /
    unmatched), the repo day link, and anything needing Felix.

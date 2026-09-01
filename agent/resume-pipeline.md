@@ -49,7 +49,7 @@ Ground rules, in priority order:
    `agent-browser fill/click/upload @ref`. Stop the display
    (`zylos-browser display stop`) before you finish — this droplet has 2GB
    RAM and Chrome must not be left running.
-6. Report by DM to Felix (Discord DM endpoint `1511039204791156786`) via
+6. Report by DM to Felix — send to the Discord DM endpoint stored as `RESUME_DM_ENDPOINT` in `~/zylos/.env` (read it with `grep '^RESUME_DM_ENDPOINT=' ~/zylos/.env` — it differs per host: this Mac's bot and the droplet's bot have different DM channels, so never hardcode it) — via
    `node ~/zylos/.claude/skills/comm-bridge/scripts/c4-send.js` exactly as
    SKILL.md specifies — one summary message, README link, submitted vs parked
    vs verified counts. Read
