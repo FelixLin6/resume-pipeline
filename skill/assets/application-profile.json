@@ -1,6 +1,6 @@
 {
   "_comment": "Machine-readable application profile for the daily job pipeline. Built 2026-09-02 from the vault (wiki/felix-resume.md, wiki/cmu-coursework-record.md, wiki/application-essay-response-bank.md) and the current resume.tex. Every value traces to those sources; unknowns are null and listed in `missing`. NO credentials live here — ATS passwords stay in ~/zylos/.env. Free-text answers live in answer-bank.md, not here.",
-  "_status": "DRAFT — awaiting Felix's one-time review (2026-09-02)",
+  "_status": "Reviewed 2026-09-02 on Felix's instruction; `missing` entries remain open until Felix supplies them (park rules apply).",
   "_sources": [
     "vault wiki/felix-resume.md (Contact, Job-Application Playbook, Education, Experience, Projects)",
     "vault wiki/cmu-coursework-record.md (transcript facts)",

@@ -1,9 +1,8 @@
 # Answer Bank — free-text application answers
 
-> ⚠️ **NOT YET APPROVED (drafted 2026-09-02).** Felix reviews this file once; until
-> the banner is removed, appliers may use it only alongside the same honesty rules
-> that already govern `felix-resume.md`. After approval it becomes the default
-> source for every free-text box.
+> Approved 2026-09-02 (reviewed on Felix's instruction; banner dropped per his
+> "drop the banner when happy"). This file is the default source for every
+> free-text box. Section E's direction caveat still stands until Felix confirms.
 
 **Rules for appliers**
 - **Assembly, never authorship.** Pick the closest answer, then you may *reorder,
