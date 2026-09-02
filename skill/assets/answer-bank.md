@@ -21,6 +21,14 @@ Sources: vault `wiki/felix-resume.md`, `wiki/application-essay-response-bank.md`
 (SpaceX essay, 2026-08), `wiki/jpmorgan-behavioral-answers.md` (recorded takes,
 2026-08-05), the Stoke Space essay submitted 2026-09-01, and `resume.tex`.
 
+**Confirmed facts (Felix, 2026-09-02) — usable in any answer, verbatim or lightly rephrased.**
+These appear in `resume.tex` but not in `felix-resume.md`; the first draft of this bank
+kept them out as unsourced. Felix confirmed all three are real:
+- the six messaging-channel integrations are "used by 400+ users on deployed agents";
+- they support "30% of total human-agent IM channel connections" (OpenMax);
+- "JWKS-validated Entra ID auth spanning four sovereign Azure clouds for eight components on the agent's registry".
+Still six channels, not seven (Telegram excluded) — that guardrail stands.
+
 ---
 
 ## A. Why this company / why this role — template
