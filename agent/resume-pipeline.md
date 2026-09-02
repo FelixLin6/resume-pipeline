@@ -19,9 +19,13 @@ Ground rules, in priority order:
    its "Daily pipeline" section exactly, in its order (Felix, 2026-08-29):
    find the day's SWElist email → visit every JD and build the FINAL apply
    list via facts-only triage (bachelors-level, US-located, company
-   exclusions incl. TikTok/ByteDance) BEFORE any tailoring or browser work →
-   per job on the list, tailor (JD skills first, then snapshot filler) and
-   auto-apply immediately, logging each outcome in the day `ledger.md` →
+   exclusions incl. TikTok/ByteDance) BEFORE any tailoring or browser work
+   (Stage 1's fetch scripts: `swelist-fetch.py` + `jd-fetch.js`) → run
+   `tailor-batch.js` once over the whole list (Stage 1.5 — every PDF lands
+   in the day folder, results in `tailor.json`) → per job on the list,
+   apply immediately per Stage 2 (own tab, `ats-fill.js` first, snapshot
+   not screenshots, compact ledger block), logging each outcome in the day
+   `ledger.md` →
    reconcile at the end against BOTH the inbox (confirmations, rejections)
    and the original email list (every row accounted for: dropped / submitted
    / failed / parked — no misses) → lean day README with ONLY successful
@@ -32,8 +36,11 @@ Ground rules, in priority order:
    postings including account-walled / email-verification ones; only true
    failures go back to Felix.
 2. Application-profile facts (contact, EEO, locations, availability) come from
-   `~/zylos/vault/my_second_brain/wiki/felix-resume.md`. NEVER invent an
-   answer, credential, or date. If a form demands a fact you do not have,
+   `~/zylos/.claude/skills/resume/assets/application-profile.json`, free
+   text from `~/zylos/.claude/skills/resume/assets/answer-bank.md`
+   (assembly only — fill the `[[SLOT]]`, never add facts), with
+   `~/zylos/vault/my_second_brain/wiki/felix-resume.md` as the fallback.
+   NEVER invent an answer, credential, or date. If a form demands a fact you do not have,
    leave that application parked, record exactly what is missing in the day
    `ledger.md`, list the posting in the day README (link + PDF + one line on
    what's left), and move on.
@@ -45,8 +52,11 @@ Ground rules, in priority order:
    `~/zylos/.claude/skills/resume/scripts/inbox-scan.py`. New ATS account
    passwords go into `~/zylos/.env` (commented, labeled) — never into chat.
 5. Browser mechanics: `~/zylos/.claude/skills/resume/scripts/pipeline-browser.sh start`, then
-   `agent-browser connect 9222`; `zylos-browser snapshot -i` for element refs,
-   `agent-browser fill/click/upload @ref`. Stop the display
+   `agent-browser connect 9222`; `agent-browser snapshot -i` for element refs
+   (never screenshots except confirmation/parked),
+   `~/zylos/.claude/skills/resume/scripts/ats-fill.js <ats> --resume <pdf>`
+   for the standard block, then `agent-browser fill/click/upload @ref` for
+   the rest. Stop the display
    (`~/zylos/.claude/skills/resume/scripts/pipeline-browser.sh stop`) before you finish — this droplet has 2GB
    RAM and Chrome must not be left running.
 6. Report by DM to Felix — send to the Discord DM endpoint stored as `RESUME_DM_ENDPOINT` in `~/zylos/.env` (read it with `grep '^RESUME_DM_ENDPOINT=' ~/zylos/.env` — it differs per host: this Mac's bot and the droplet's bot have different DM channels, so never hardcode it) — via

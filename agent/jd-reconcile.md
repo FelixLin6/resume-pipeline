@@ -17,8 +17,14 @@ out. You run only after every applier has returned.
      directions; no confirmation → UNVERIFIED; note rejections/next-steps.
    - COVERAGE: every row in the day's `joblist.json` accounted for exactly
      once — dropped / skipped-repost / submitted / failed / parked. A miss
-     means you process that posting yourself inline per Stage 2 (tailor
-     lock included) before finishing, and flag the miss in the DM.
+     means you process that posting yourself inline per Stage 2
+     (`tailor-batch.js --keys <key>` first if it is not in `tailor.json`,
+     then steps a–g in your own browser session) before finishing, and
+     flag the miss in the DM.
+   - `ledger.md` keeps the appliers' compact blocks as they are; add the
+     counts, reconciliation, drops/skips, the aggregate study list and the
+     JD-skills-that-did-not-fit line from `tailor.json`, and incidents.
+     Commit the `screenshots/` folder as-is — never bulk-delete or trim it.
    - Day `README.md` is the LEAN DAILY SUMMARY (Felix, 2026-08-31), with
      exactly two possible compact sections (omit an empty one): `Applied
      (N)` lists each successful submission as company + role only; `Manual
