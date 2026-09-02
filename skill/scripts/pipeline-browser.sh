@@ -13,6 +13,28 @@ MAC_CHROME="$HOME/Library/Caches/ms-playwright/chromium-1228/chrome-mac-arm64/Go
 UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
 
 alive() { curl -s -m 3 "localhost:$CDP/json/version" >/dev/null 2>&1; }
+alive4() { curl -s -m 3 "127.0.0.1:$CDP/json/version" >/dev/null 2>&1; }
+alive6() { curl -s -m 3 "http://[::1]:$CDP/json/version" >/dev/null 2>&1; }
+
+# Chrome 149 for Testing binds the DevTools server to ::1 only, even with
+# --remote-debugging-address=127.0.0.1 (seen 2026-09-02: agent-browser's default
+# 127.0.0.1 connect silently fell back to launching isolated browsers → crash
+# storms). If only ::1 answers, run a tiny v4→v6 TCP shim so 127.0.0.1:$CDP works.
+ensure_v4() {
+  alive4 && return 0
+  alive6 || return 1
+  nohup node -e '
+    const net=require("net");process.title="cdp-ipv4-shim";
+    net.createServer(c=>{const u=net.connect('"$CDP"',"::1");
+      c.pipe(u).on("error",()=>{});u.pipe(c).on("error",()=>{});
+      c.on("error",()=>{});u.on("error",()=>u.destroy());
+    }).listen('"$CDP"',"127.0.0.1");
+  ' >/dev/null 2>&1 &
+  disown
+  for i in $(seq 1 5); do alive4 && { echo "  (v4 shim up: 127.0.0.1:$CDP -> [::1]:$CDP)"; return 0; }; sleep 1; done
+  echo "WARNING: CDP answers only on [::1]:$CDP — v4 shim failed; set AGENT_BROWSER_CDP from curl http://[::1]:$CDP/json/version" >&2
+  return 0
+}
 
 case "${1:-}" in
   start)
@@ -29,17 +51,18 @@ case "${1:-}" in
     else
       "$HOME/zylos/bin/zylos-browser" display start
     fi
-    for i in $(seq 1 15); do alive && { echo "up on CDP $CDP"; exit 0; }; sleep 1; done
+    for i in $(seq 1 15); do alive && { ensure_v4; echo "up on CDP $CDP"; exit 0; }; sleep 1; done
     echo "FAILED: CDP $CDP not answering after start" >&2; exit 1
     ;;
   stop)
     [ "$(uname)" = "Darwin" ] || "$HOME/zylos/bin/zylos-browser" display stop || true
     if alive; then pkill -f job-application-profile || true; sleep 3; fi
+    pkill -f cdp-ipv4-shim >/dev/null 2>&1 || true
     if alive; then echo "FAILED: CDP $CDP still answering after stop" >&2; exit 1; fi
     echo "stopped (CDP $CDP dead)"
     ;;
   status)
-    if alive; then echo "up on CDP $CDP"; else echo "down"; exit 1; fi
+    if alive; then ensure_v4; echo "up on CDP $CDP"; else echo "down"; exit 1; fi
     ;;
   *) echo "usage: pipeline-browser.sh start|stop|status" >&2; exit 2 ;;
 esac
