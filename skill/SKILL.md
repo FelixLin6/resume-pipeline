@@ -506,10 +506,11 @@ orchestration layer differs. To run the daily pipeline on the Codex runtime:
   start|stop|status` (above), `agent-browser` with
   `AGENT_BROWSER_SESSION=applier<i>`.
 - **Stage 1.5 (tailor batch) and the fetch scripts are plain node/python**
-  — the orchestrator runs them the same way on both runtimes. Measured fit
-  needs `python3 -c "import pdfminer"` on the host (the Mac needs
-  `pip3 install pdfminer.six` once); without it `apply-skills.js` silently
-  uses the old compile loop.
+  — the orchestrator runs them the same way on both runtimes. The measured
+  fit needs nothing beyond tectonic (its probes read the TeX log; the
+  confirm compile's page count uses PDFKit on macOS / pdfminer on Linux as
+  before); on any inconsistency `apply-skills.js` silently uses the old
+  compile loop.
 
 ## Guardrails
 
