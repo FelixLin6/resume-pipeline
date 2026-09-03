@@ -16,9 +16,10 @@
  *                                              hits: [{name, cat, score, count}],
  *                                              boost: ['node.js', ...] }   // snapshot skills to pull forward
  *
- * Scoring: each match in a requirements/qualifications line counts 3, elsewhere
- * 1; ties break by lexicon category order (languages first), then by first
- * position in the text. `boost` = verified snapshot skills that share a lexicon
+ * Scoring: every match counts 1; a match inside a requirements/qualifications
+ * line (explicit `requirements` array or a heading-delimited region of the
+ * text) adds 3 more, so a requirements mention scores 4 in total. Ties break by
+ * lexicon category order (languages first), then by first position in the text. `boost` = verified snapshot skills that share a lexicon
  * category with any JD hit and were not themselves matched — apply-skills.js
  * uses it to order the filler so a frontend JD pulls the web stack forward and
  * a systems JD pulls C/Linux/GDB forward, instead of one fixed tail everywhere.
@@ -98,7 +99,13 @@ function canonical(chip) {
     if (e.name === low) return e.name;
     if ((e.aliases || []).some(a => a.toLowerCase() === low)) return e.name;
   }
-  for (const e of COMPILED) for (const re of e.res) { re.lastIndex = 0; if (re.test(t) && t.length <= e.name.length + 24) { re.lastIndex = 0; return e.name; } re.lastIndex = 0; }
+  // Regex fallback for chips like "React.js (frontend)": the matched alias must
+  // cover at least half the chip, so a long chip that merely contains "Java"
+  // does not collapse onto java.
+  for (const e of COMPILED) for (const re of e.res) {
+    re.lastIndex = 0; const m = re.exec(t); re.lastIndex = 0;
+    if (m && m[0].length * 2 >= t.replace(/\s*\(.*\)\s*$/, '').length) return e.name;
+  }
   return null;
 }
 
