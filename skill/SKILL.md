@@ -475,6 +475,13 @@ account instead of guest flow, typed dates, reload, slower pacing). There is
 `needs_felix` with a "retry window closed" unlock note) → go to Stage 3.
 Loop until exit 4 or the deadline. Exit 5 = no retry rows but captcha-assist rows still `pending` (see `agent/captcha-assist.md`): run the assist sweep, then call `retry-queue.js` again — never start Stage 3 on exit 5.
 
+**Captcha-assist orchestration (2026-09-03, full spec `agent/captcha-assist.md`):**
+
+- **Run start:** after the resume-drops pull, read `resume-drops/state/assist.flag` (git-synced; either bot's Discord `assist on`/`assist off` sets it). Armed → every applier prompt says "captcha-assist is ARMED"; the 13:15 daily run defaults ARMED. Create a C5 scheduler task (10-min interval, this run only — the main session never sleeps to poll) that greps the live `ledger-part*.md` for `assist: pending`.
+- **Ping:** batch ALL currently-pending rows into ONE Discord DM per poll/wave-end — "tab N — Company — puzzle — URL" lines plus reply instructions (`done` / `done <n>` / `skip`) — never one DM per captcha; unsolved rows only ever re-ride the next batch.
+- **Sweep:** on Felix's `done`, at wave end, or on exit 5, spawn a DEDICATED job-applier with retry-wave.json's `assist` array as its slice (never message a running applier; never drive tabs from the main session; sweep counts toward the max-2-appliers cap — both slots busy → queue it until one frees). It finishes each solved row's SAME attempt and rewrites the block (`submitted`/`retry` + `assist: solved`), or writes `assist: expired` where the puzzle still stands. Felix's `skip` → write `assist: expired` on the listed rows immediately.
+- **Run end, fixed order: sweep → retry-queue (with `--deadline`) → Stage 3.** Reversing it demotes pending rows to walls before the sweep touches them. Remove the C5 poll task in the Stage-3 tail.
+
 ### Stage 3 — RECONCILE (agent `jd-reconcile`, one instance)
 
 Runs only after ALL appliers have returned and `retry-queue.js` exits 4 (exit 5 means assist rows are pending — sweep first; Stage 3 never runs over open assist tabs).

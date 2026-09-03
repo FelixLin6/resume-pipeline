@@ -1,6 +1,6 @@
 # captcha-assist — human-in-the-loop captcha unlock (v0 spec)
 
-**Status: DRAFT v0 — Local drafts/owns the applier side; VM (zylos-felix-cloud) reviews and owns the retry-queue side.**
+**Status: APPROVED v0 (VM review 2026-09-03, 4 messages; edits folded in below) — Local owns the applier side; VM owns the retry-queue side (shipped 0e2ea6d + exit-5 fix 842244c).**
 Authorized by Felix 2026-09-03 ~10:50 PT (relayed via VM on HXA felix channel; "captcha-assist human-in-loop: YES, build it"). Design constraints (1)-(4) below agreed with VM on HXA 2026-09-03 ~11:0x PT.
 
 ## What it is
@@ -25,7 +25,7 @@ On an in-scope puzzle, the applier:
 2. Writes the row's ledger block immediately (matches SKILL.md's Stage-2 template exactly):
 
    ```
-   ## [<key8>] <Company> — <Title> — PARKED
+   ## [<email row>] <Company> — <Title> — PARKED  (row number, not key8 — Stage 3 reconciles by row)
    - key <uuid> · ATS <ats> <form url> · PDF <file> · applier<i> · <HH:MM PT>
    - outcome: assist — <puzzle class> at <step>; tab left open for Felix
    - assist: pending
@@ -40,7 +40,7 @@ On an in-scope puzzle, the applier:
 
 ### 2. Orchestrator: batch the ping (VM asks #1, #3)
 
-The orchestrator (main session) polls the live part ledgers for `assist: pending` roughly every 10 minutes during a wave, and always at wave end. New pending rows are batched into **one** Discord DM — never one DM per captcha:
+A C5 scheduler task (created at run start, removed at run end — the main session never sleeps to poll) checks the live part ledgers for `assist: pending` every 10 minutes during the run; the orchestrator also checks at wave end. New pending rows are batched into **one** Discord DM — never one DM per captcha:
 
 > Captchas waiting (solve on the Mac's pipeline browser, then reply `done`):
 > 1. tab 12 — AMD — hCaptcha — https://careers.amd.com/…
@@ -51,16 +51,16 @@ Repeat pings for still-unsolved rows ride along with the next batch; a row is on
 
 ### 3. Felix: solve on screen, reply
 
-Felix solves the puzzle(s) directly in the visible browser and replies `done` (all), `done <n>` (one), or `skip` (park now). No reply required — silence just means the timeout fallback fires later.
+Felix solves the puzzle(s) directly in the visible browser and replies `done` (all), `done <n>` (one), or `skip` (give up now). `skip` writes `assist: expired` on the listed rows immediately, so they file as walls at the next parse. No reply required — silence just means the timeout fallback fires later.
 
 ### 4. Sweep: finish the same attempt
 
-Triggered by Felix's `done` or at wave end (whichever first), a sweep visits each pending tab and:
+Triggered by Felix's `done`, at wave end, or on retry-queue **exit 5** (no retry rows left but assists pending — 842244c; never start Stage 3 on exit 5), a sweep visits each pending tab and:
 
 - Confirms the challenge is gone. If cleared: completes the SAME attempt — remaining fields, submit, confirmation screenshot — and rewrites the block per the shipped contract: `outcome: submitted` (or `retry` — whatever truthfully happened) with `- assist: solved` kept as provenance.
 - If the puzzle is still there, the tab is gone, or the form state was lost: `assist: expired` and the block otherwise reverts to today's semantics; the tab is closed.
 
-The sweep is a job-applier instance (or the tail of a still-running one) and obeys every own-tab rule; it counts toward the max-2-appliers cap. Stage 3 never runs, and the browser is never stopped, while assist rows are still `pending`.
+The sweep is a DEDICATED job-applier instance spawned by the orchestrator with retry-wave.json's `assist` array as its slice — never a message into a running applier, and the orchestrator never drives tabs itself (wrong model tier, blocks the main loop, breaks own-tab rules). It counts toward the max-2-appliers cap: if both slots are busy when `done` arrives, the sweep queues until a slot frees. **Run-end order is fixed: sweep → retry-queue (with deadline) → Stage 3** — running retry-queue first would demote pending rows to walls before the sweep touches them. Stage 3 never runs, and the browser is never stopped, while assist rows are still `pending`.
 
 ### 5. Timeout fallback (VM ask #4)
 
@@ -69,7 +69,7 @@ The sweep is a job-applier instance (or the tail of a still-running one) and obe
 ## Arming (VM ask #4)
 
 - `--assist` on the run/wave launch arms it for that run; absent → disarmed → today's instant-park behavior, byte-for-byte.
-- Day-level toggle: Felix saying `assist on` / `assist off` on Discord sets `skill/state/assist.flag` (checked at run start; the flag file records who/when).
+- Day-level toggle: Felix saying `assist on` / `assist off` (on either bot's Discord) sets **`resume-drops/state/assist.flag`** — git-synced like the seen sets, so both machines see it; run start pulls resume-drops and reads it. (A Mac-local flag would repeat the machine-local provenance trap.) The flag file records who set it and when.
 - **Default for the 13:15 daily run: ARMED** (Felix's yes covers it; the timeout fallback makes an away-day harmless).
 
 ## Ledger / retry-queue contract (VM's side — SHIPPED, 0e2ea6d, deployed both machines)
@@ -84,10 +84,10 @@ The sweep is a job-applier instance (or the tail of a still-running one) and obe
 - `agent/job-applier.md` — detect/record/move-on rules + tab-hygiene exemption.
 - `skill/SKILL.md` — orchestrator poll + batch-DM + sweep + Stage-3 ordering ("no Stage 3 with pending assists").
 - Sweep worklist comes free from VM's side: `retry-wave.json`'s `assist` array (no separate scan script needed).
-- `skill/state/assist.flag` — day toggle.
+- `resume-drops/state/assist.flag` — git-synced day toggle.
 
-## Open questions for review
+## Resolved review questions (VM, 2026-09-03)
 
-1. Sweep identity: dedicated mini-applier vs. the last live applier absorbing sweep duty — draft says either, capped at 2 total.
-2. Mid-wave `done` when both applier slots are busy: queue the sweep until a slot frees (draft's answer), or let the orchestrator itself drive the sweep tabs?
-3. Does `assist: pending` need a max-open-tabs guard (e.g. 6) before the applier reverts to instant-park? Draft: yes, 6.
+1. Sweep identity: DEDICATED sweep applier spawned by the orchestrator, slice = the `assist` array; never message a running applier.
+2. Mid-wave `done` with both slots busy: queue until a slot frees; the orchestrator must never drive tabs itself.
+3. Max-open-assist-tabs guard: YES, cap 6 — beyond it the applier instant-parks (`outcome: wall`) as today.

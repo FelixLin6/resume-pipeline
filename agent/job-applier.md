@@ -127,11 +127,28 @@ already tailored (2026-09-02) and everything that can be a script is one.
    in every block starts with one of:
    `outcome: submitted` · `outcome: retry, retry_reason: <crash|403|429|access-denied|tenant-5xx|other>`
    · `outcome: needs-felix, unlock: <the single action Felix must take>`
-   · `outcome: wall` (captcha-class: hCaptcha, DataDome, reCAPTCHA-at-submit).
+   · `outcome: wall` (captcha-class: hCaptcha, DataDome, reCAPTCHA-at-submit)
+   · `outcome: assist — <puzzle class> at <step>; tab left open for Felix`
+   (ONLY when your prompt says captcha-assist is ARMED — see below).
    `retry` = transient, a later wave re-attempts it automatically.
    `needs-felix` = only something Felix personally can do unblocks it (a
    CMU-address code, the Apple ID call, a fact no source file holds).
    `wall` = an explicit human-verification puzzle; do not re-attempt.
+
+   **Captcha-assist (2026-09-03, `agent/captcha-assist.md`).** When your
+   prompt says assist is ARMED and you hit an explicit puzzle inside an
+   apply flow (hCaptcha, interactive reCAPTCHA, DataDome puzzle page,
+   iCIMS account-creation gate — NOT an Ashby spam flag, NOT a passive
+   scorer, NOT any standing carve-out): instead of `wall`, write the block
+   with `outcome: assist — <puzzle class> at <step>; tab left open for
+   Felix` plus a `- assist: pending` line and a `- tab: <your tab index> ·
+   session: <AGENT_BROWSER_SESSION>` line, include `filled:` so the sweep
+   knows what remains, screenshot as usual, LEAVE THAT TAB OPEN (the one
+   exception to closing your own tabs — the sweep or Stage 3 closes it),
+   and move on to your next job. Never wait for a human. Cap: at most 6
+   assist-pending tabs per applier — beyond that, `outcome: wall` as
+   today. If your prompt says assist is DISARMED or says nothing about it,
+   this section does not exist: park as `wall` exactly as before.
    Every block also carries `domain: <employer apply-domain>` and
    `attempt: <n>` (1 on first try; the orchestrator's prompt tells you n
    for re-queued keys) — retry-queue.js keys its per-domain delay and
