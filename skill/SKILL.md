@@ -371,7 +371,10 @@ Per job:
       NOT yet on the daily path — needs one live paced run first, then
       flip the default (cloud bot reviewed cc66b46; its findings landed in
       the follow-up commit). Typing strategy and mouse mode are PROBED per
-      run because agent-browser builds diverge (0.35.1 Mac: `type` is
+      run — the probe injects a self-removing offscreen input into the
+      target page's DOM once per run, a known accepted choice (cloud-bot
+      review + cross-build gate PASS both machines, 2026-09-03) — because
+      agent-browser builds diverge (0.35.1 Mac: `type` is
       eventless, per-char `press` used; 0.9.4 droplet: `type` dispatches
       real key events and CLI spawns cost ~266ms, so 2-5 char `type`
       bursts used; `get box @ref` unsupported there → hover fallback).
