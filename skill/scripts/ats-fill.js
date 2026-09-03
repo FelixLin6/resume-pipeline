@@ -54,6 +54,18 @@ const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0,
 const pace = require('./pace');
 pace.init({ enabled: !!flag('pace'), dry: DRY, ab });
 
+// The session must already be attached to the shared browser with the ATS
+// page open. Without this, some agent-browser builds silently launch an
+// ISOLATED browser (the 2026-09-02 crash-storm root cause) and every fill
+// lands on about:blank.
+{
+  const url = ab('get', 'url').out.trim();
+  if (!/^(https?|file):/.test(url)) {
+    console.error(`ats-fill: session "${process.env.AGENT_BROWSER_SESSION || 'default'}" has no page attached (url: ${url || 'none'}) — refusing to run against a fresh/isolated browser. Open the ATS form in your tab first.`);
+    process.exit(3);
+  }
+}
+
 function snapshot() {
   const { out } = ab('snapshot', '-i');
   const items = [];
@@ -107,7 +119,7 @@ function pick(label, options, typeText) {
     const w = norm(want);
     const opt = visible.find(o => norm(o.label) === w) || visible.find(o => norm(o.label).startsWith(w)) || visible.find(o => norm(o.label).includes(w));
     if (opt) {
-      ab('click', '@' + opt.ref); pace.paceSleep(500);
+      pace.click(opt.ref); pace.paceSleep(500);
       report.picked.push(`${it.label} -> ${opt.label}`);
       return true;
     }

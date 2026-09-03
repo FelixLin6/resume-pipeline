@@ -368,12 +368,18 @@ Per job:
       instant fills — targets passive scorers (Ashby spam score,
       reCAPTCHA v3); explicit puzzles stay a hard wall. Sandbox-verified
       2026-09-03: report byte-parity with unpaced, ~59s vs ~1.5s per form.
-      NOT yet on the daily path — needs one live paced run + VM review
-      first, then flip the default. **Regression gate (standing rule): any
-      change to pace.js or the stealth path re-runs the sandbox form
-      comparison (`assets/pace-test-form.html` in an isolated
-      `AGENT_BROWSER_SESSION`: unpaced vs paced report parity + keydown
-      instrumentation) before deploy.**
+      NOT yet on the daily path — needs one live paced run first, then
+      flip the default (cloud bot reviewed cc66b46; its findings landed in
+      the follow-up commit). Typing strategy and mouse mode are PROBED per
+      run because agent-browser builds diverge (0.35.1 Mac: `type` is
+      eventless, per-char `press` used; 0.9.4 droplet: `type` dispatches
+      real key events and CLI spawns cost ~266ms, so 2-5 char `type`
+      bursts used; `get box @ref` unsupported there → hover fallback).
+      **Regression gate (standing rule): any change to pace.js /
+      ats-fill.js / the stealth path runs `scripts/pace-gate.sh` on EACH
+      machine before deploy — it prints the agent-browser version and
+      fails on report divergence or a paced run with no real keydowns.
+      Record the version + keydown count in the commit/ledger.**
    d. **Finish what the report lists as UNHANDLED / MISSED** — custom
       questions, how-did-you-hear checkboxes, free-text boxes (from the
       bank), any field it could not find — with `find label … fill` or
