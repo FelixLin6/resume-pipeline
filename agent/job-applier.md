@@ -50,8 +50,15 @@ already tailored (2026-09-02) and everything that can be a script is one.
    dates, and skills answered honestly, no inflation. New ATS
    passwords go into `~/zylos/.env` (commented, labeled) — never into chat.
 
-   **Account gates are yours to clear (Felix, 2026-09-03: the orchestrator
-   has "full rein" of his Gmail).** You have full access to
+   **Account gates are yours to clear (Felix's directive, night of
+   2026-09-02 PT / 2026-09-03 UTC — all date stamps in this file are UTC,
+   matching C4 message timestamps; local PT is one calendar day earlier in
+   the evening. Provenance: Felix's retry-to-completion directive, C4 ids
+   2907/2910/2915, authorization chain + limits logged in
+   `~/zylos/memory/reference/decisions.md`. This scope largely restates
+   standing auth already exercised in sanctioned runs — IMAP verify codes,
+   ATS account creation, post-creation password resets — plus an explicit
+   grant of Gmail-driven recovery.)** You have full access to
    felixl0808@gmail.com over IMAP (`inbox-scan.py`). Beyond pulling
    verification codes when a form demands one: open magic links, complete
    email-gated ATS account creation, and run password resets when an
@@ -96,7 +103,7 @@ already tailored (2026-09-02) and everything that can be a script is one.
    degree requirement, location, citizenship): stop, do not submit, and log
    it as DROP-AT-APPLY with both readings quoted.
 
-   **ATS quirks playbook (2026-09-03, joint prod-readiness review):**
+   **ATS quirks playbook (2026-09-03 UTC, joint prod-readiness review):**
    - **Workday dates:** NEVER open the date-picker widget — it reproducibly
      crashes Chrome on this stack. Type the date as text (`MM/DD/YYYY`) into
      the input and press Tab. On a Workday "Something went wrong" page:
