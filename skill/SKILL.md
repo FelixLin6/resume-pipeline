@@ -239,6 +239,21 @@ state):**
 2. **Build the day's FINAL apply list — facts-only triage (Felix, 2026-08-26
    — no fit judgment; he decides what to apply to).** Drop a row ONLY for
    factual disqualification:
+   - **Role gate (Felix, 2026-09-03 — Bespoke policy): software / ML / AI
+     engineering and adjacent roles only** (adjacent = infra, data
+     engineering, embedded software, security software, dev tools). Framing:
+     keep a role if what the intern ships is code, models, data pipelines, or
+     the infrastructure that runs code; drop it if the deliverable is a
+     circuit, RTL, a mechanical part, a process, a spreadsheet, or a deck.
+     `jd-fetch.js` runs `scripts/role-gate.js` on every row (title families
+     + the JD's skills mix) and writes `role_gate: keep | drop | review` with
+     a reason into jdfacts / the compact NDJSON. `drop` → drop the row with
+     reason `not software: <reason>`; `review` → apply the deliverable test
+     to the JD's responsibilities (keep only if at least half the work is
+     writing code; embedded C/C++/Rust for a device is software, board or
+     RTL design is not); `keep` → continue with the checks below. Gate drops
+     are listed in the day README under **Filtered: not software** so Felix
+     can spot-check and pull one back.
    - **Degree level:** `degrees` excludes "Bachelor's" (or the `advanced-degree`
      flag is set, or the JD demands MS/PhD). Felix: BS, May 2028.
    - **Degree field:** the JD requires a specific degree he doesn't have (e.g.

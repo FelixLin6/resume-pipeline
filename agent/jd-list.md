@@ -40,6 +40,13 @@ fetching is scripted — you do NOT curl postings one by one; you triage JSON.
    - `locations`/`remote`; `additional_requirements` (US Authorization /
      US Citizenship / clearance) and `sponsors_h1b` are pass-through marks
      for the ledger, never filters.
+   - `role_gate` (2026-09-03, Felix's software-only policy): `drop` → status
+     `dropped`, `drop_reason: "not software: <role_gate_reason>"`, no further
+     checks; `review` → read the JD's responsibilities (full jdfacts row) and
+     apply the deliverable test from SKILL.md Stage 1 — keep only if at least
+     half the work is writing code, otherwise drop with the same reason
+     prefix; `keep` → continue. Never override a `drop` on a hunch; Felix
+     pulls rows back from the README's "Filtered: not software" list.
    - `already_seen:true` = key already in `state.json` → `skipped-repost`.
    - `active:false` = Simplify marks it closed → drop with that reason.
    - `resolved:"error"` (403/timeout) → the link is edge-blocked from this

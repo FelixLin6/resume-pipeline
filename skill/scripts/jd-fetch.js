@@ -28,6 +28,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { roleGate } = require(path.join(__dirname, 'role-gate.js'));
 const { URL } = require('url');
 const http = require('http');
 const https = require('https');
@@ -178,6 +179,9 @@ async function processRow(row) {
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONC, rows.length) }, worker));
+  // Role gate (Felix's policy 2026-09-03): software / ML / AI engineering + adjacent only.
+  for (const r of results) Object.assign(r, roleGate(r));
+  const gateCounts = results.reduce((c, r) => { c[r.role_gate] = (c[r.role_gate] || 0) + 1; return c; }, {});
   const d = new Date(); const p = n => String(n).padStart(2, '0');
   const out = { date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, source_email: input.email || null,
     generated_at: d.toISOString(), rows: results };
@@ -200,6 +204,7 @@ async function processRow(row) {
       if (r.posting_title && r.posting_title !== r.title) o.posting_title = r.posting_title;
       if (r.ats) o.ats = r.ats;
       o.skills = r.skills || []; o.skills_source = r.skills_source;
+      o.role_gate = r.role_gate; if (r.role_gate !== 'keep') o.role_gate_reason = r.role_gate_reason;
       if (r.degrees) o.degrees = r.degrees;
       if (r.seasons) o.seasons = r.seasons;
       if (r.title_term) o.title_term = r.title_term;
@@ -216,5 +221,5 @@ async function processRow(row) {
     });
     fs.writeFileSync(flags.compact, lines.join('\n') + '\n');
   }
-  console.error(`jd-fetch: ${rows.length} rows in ${secs}s — ${JSON.stringify(counts)}${flags.out ? ' -> ' + flags.out : ''}${flags.compact ? ' (+ ' + flags.compact + ')' : ''}`);
+  console.error(`jd-fetch: ${rows.length} rows in ${secs}s — ${JSON.stringify(counts)} — role-gate ${JSON.stringify(gateCounts)}${flags.out ? ' -> ' + flags.out : ''}${flags.compact ? ' (+ ' + flags.compact + ')' : ''}`);
 })();

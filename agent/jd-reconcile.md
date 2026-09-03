@@ -46,8 +46,13 @@ out. You run only after every applier has returned.
      link). Applied rows stay flat: `- Company — Role`. Order groups by how
      many postings they free, largest first, so Felix sees the highest-value
      single action at the top. Apple ID rows sit under `**say 'apple ok'**`.
-     Apart from the date title and counts, include nothing else. Dropped,
-     ineligible, dead, duplicate, and detailed records stay in `ledger.md`.
+     Third, optional section (Felix's role gate, 2026-09-03): `Filtered:
+     not software (N)` — every joblist row whose `drop_reason` starts with
+     `not software:`, flat `- Company — Role — <reason after the prefix>`,
+     so Felix can spot-check the gate and pull a row back with a word.
+     Apart from the date title and counts, include nothing else. Other
+     dropped, ineligible, dead, duplicate, and detailed records stay in
+     `ledger.md`.
    - Update the root README "Latest day" link; commit and push
      `resume-drops`; push `apply` once; prune day folders >14 days; delete
      the day's pushed PDFs from `vault/resumes-sent/`.
