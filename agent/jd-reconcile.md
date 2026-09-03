@@ -25,14 +25,27 @@ out. You run only after every applier has returned.
      counts, reconciliation, drops/skips, the aggregate study list and the
      JD-skills-that-did-not-fit line from `tailor.json`, and incidents.
      Commit the `screenshots/` folder as-is — never bulk-delete or trim it.
+   - Before writing the README run
+     `node ~/zylos/.claude/skills/resume/scripts/retry-queue.js --day <today>
+     [--day <other days in this run>] --deadline <the run's deadline>` and
+     read `retry-wave.json`. It must exit 4 (nothing left to retry); if it
+     exits 0 the orchestrator still owes a wave — return that to it instead
+     of reconciling. Its `needs_felix` + `wall` lists ARE the manual pile;
+     its `submitted` count must match your Applied section.
    - Day `README.md` is the LEAN DAILY SUMMARY (Felix, 2026-08-31), with
      exactly two possible compact sections (omit an empty one): `Applied
      (N)` lists each successful submission as company + role only; `Manual
      (N)` lists only selected/applicable failed or parked postings Felix
-     must finish, with company + role + direct apply link (the posting's own
-     Simplify page, else its ATS link) + tailored PDF + one short blocker.
-     Use one bullet per row: `- Company — Role` for Applied and `- Company —
-     [Role](apply URL) — [PDF](PDF URL) — blocker` for Manual.
+     must finish, **grouped by unlock action (2026-09-03)**: one
+     `- **<unlock action>**` sub-heading bullet per distinct `unlock:` (and
+     one per wall type for `wall` rows: hCaptcha on iCIMS gates, DataDome,
+     reCAPTCHA at submit, Ashby spam flag; and `retry window closed` for
+     rows demoted at the deadline), each followed by the postings it frees
+     as nested bullets `  - Company — [Role](apply URL) — [PDF](PDF URL) —
+     blocker` (apply link = the posting's own Simplify page, else its ATS
+     link). Applied rows stay flat: `- Company — Role`. Order groups by how
+     many postings they free, largest first, so Felix sees the highest-value
+     single action at the top. Apple ID rows sit under `**say 'apple ok'**`.
      Apart from the date title and counts, include nothing else. Dropped,
      ineligible, dead, duplicate, and detailed records stay in `ledger.md`.
    - Update the root README "Latest day" link; commit and push

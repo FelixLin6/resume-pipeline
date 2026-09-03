@@ -418,11 +418,22 @@ Per job:
       ```
       ## [<email row>] <Company> — <Title> — SUBMITTED|PARKED|FAILED|SKIPPED-REPOST|DROP-AT-APPLY
       - key <uuid> · ATS <greenhouse|…> <form url> · PDF <file name> · applier<i> · <HH:MM PT>
-      - outcome: <one line — confirmation text or URL, or the blocker and exactly what is left>
+      - outcome: <submitted | retry, retry_reason: <r> | needs-felix, unlock: <a> | wall> — <one line: confirmation text/URL, or the blocker and exactly what is left>
+      - attempt: <n>
+      - domain: <employer apply hostname>
       - filled: ats-fill <n> fields; manual: <field names only, comma-separated>
       - answers: <ONLY free-text boxes, verbatim, each as "Q → A"; omit line if none>
       - notes: <only if unusual — account created (.env label), contradiction with joblist, ATS error>
       ```
+
+      **Outcome taxonomy (2026-09-03, joint review; full rules in
+      `agent/job-applier.md`):** the `outcome:` line LEADS with exactly one of
+      `submitted`, `retry` (transient: crash, 403/429/Access Denied, tenant
+      5xx, Workday "something went wrong" — a later wave re-attempts it
+      automatically), `needs-felix` (only Felix can unblock it; carry the
+      single `unlock:` action), or `wall` (explicit human-verification puzzle
+      or an Ashby spam flag — never re-attempt). `scripts/retry-queue.js`
+      parses these lines plus `attempt:` and `domain:`, so keep them exact.
 
       No narrative, no table of every field value, no "verified on the JD
       page" lines, no reasoning. Free-text answers are the one thing Felix
@@ -433,9 +444,34 @@ Per job:
 Return to the orchestrator: per-key outcomes, one line each. Do NOT push,
 do NOT write `README.md` or `ledger.md`, do NOT stop the display.
 
+### Stage 2.5 — RETRY WAVES (orchestrator, `scripts/retry-queue.js` — 2026-09-03)
+
+Felix (2026-09-02): *minimize fallbacks as much as possible; keep retrying
+with better approaches until the window closes.* A park is a last resort, so
+between applier waves the orchestrator runs
+
+```
+node scripts/retry-queue.js --day <YYYY-MM-DD> [--day <earlier day>] --n <N> \
+     --deadline <ISO time the run must stop>
+```
+
+It reads every `ledger-part*.md` (and `ledger.md`) for the named days, keeps
+the latest block per key, and writes `<last day>/retry-wave.json`:
+`retry` rows (attempt+1, one employer domain never split across two slices,
+edge-blocked rows — Access Denied / 403 / 429 — at the tail so they run
+later), `needs_felix`, `wall`, `submitted` counts and the `slices` key lists.
+Exit 0 = a wave to run: launch N appliers over `slices`, telling each its
+keys and `attempt` numbers, and tell them to try a DIFFERENT approach than
+the previous block's `outcome:` describes (other apply entry point,
+account instead of guest flow, typed dates, reload, slower pacing). There is
+**no attempt cap inside the window**. Exit 4 = nothing left (pile empty, or
+`--deadline` passed — remaining `retry` rows are then demoted to
+`needs_felix` with a "retry window closed" unlock note) → go to Stage 3.
+Loop until exit 4 or the deadline.
+
 ### Stage 3 — RECONCILE (agent `jd-reconcile`, one instance)
 
-Runs only after ALL appliers have returned.
+Runs only after ALL appliers have returned and `retry-queue.js` exits 4.
 
 1. **Merge** every `ledger-part*.md` plus the joblist's dropped/skipped rows
    into one `ledger.md` (email order), then delete the part files.
@@ -477,8 +513,18 @@ Runs only after ALL appliers have returned.
      - `Manual (N)` — only selected/applicable postings whose automated
        submission failed or was parked and that Felix must finish; company,
        role, direct apply link, tailored PDF link, and one short blocker.
+       **Grouped by unlock action (2026-09-03):** take `needs_felix` and
+       `wall` from the final `retry-wave.json`; under one `**<unlock
+       action>**` sub-bullet list every posting that action frees (one
+       L3Harris password reset frees two postings; one CMU-mail forwarding
+       rule frees every CMU-code row), walls grouped by wall type
+       (`**hCaptcha on iCIMS gates**`, `**DataDome**`, …). Rows still
+       classed `retry` never enter Manual while the window is open; after
+       the deadline they arrive here demoted, under `**retry window
+       closed**`.
      Use exactly one bullet per row: `- Company — Role` for Applied and
-     `- Company — [Role](apply URL) — [PDF](PDF URL) — blocker` for Manual.
+     `- Company — [Role](apply URL) — [PDF](PDF URL) — blocker` for Manual
+     (nested under its unlock-action sub-bullet).
      Apart from the date title and section counts, include nothing else. In
      particular, omit dropped/ineligible/dead/duplicate postings, full form
      details, timestamps, confirmation detail, study lists, and narrative;
