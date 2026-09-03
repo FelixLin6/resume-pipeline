@@ -48,13 +48,14 @@ function parseBlocks(text, day, file) {
   const out = [];
   const parts = text.split(/^(?=## \[)/m);
   for (const p of parts) {
-    const h = p.match(/^## \[([^\]]*)\]\s+(.*?)\s+—\s+(SUBMITTED|PARKED|FAILED|SKIPPED-REPOST|DROP-AT-APPLY)\s*$/m);
+    const h = p.match(/^## \[([^\]]*)\]\s+(.*?)\s+—\s+(SUBMITTED|PARKED|FAILED|SKIPPED-REPOST|DROP-AT-APPLY)\b(?:\s+—.*)?\s*$/m); // trailing ' — note' tolerated
     if (!h) continue;
     const headerRest = h[2];
     const [company, ...titleParts] = headerRest.split(' — ');
     const title = titleParts.join(' — ');
-    const keyLine = p.match(/^- key:?\s+(\S+)(.*)$/m);
-    if (!keyLine) continue;
+    // Canonical: `- key <uuid> · ATS …`. Legacy long-form: `- Email row N of M · key `<uuid>` · Simplify: …`.
+    const keyLine = p.match(/^- key:?\s+(\S+)(.*)$/m) || p.match(/^-.*?\bkey:?\s*`?([0-9a-f]{8}-[0-9a-f-]{27})`?(.*)$/mi);
+    if (!keyLine) { console.error(`warning: block without key skipped in ${path.basename(file)}: ${h[0].slice(0, 80)}`); continue; }
     const key = keyLine[1].replace(/[`*]/g, ''); // tolerate `backticked`/**bold** keys
     const urlMatch = (keyLine[2] || '').match(/https?:\/\/[^\s·]+/);
     const url = urlMatch ? urlMatch[0] : null;
