@@ -189,6 +189,16 @@ state):**
 
 ### Stage 1 — LIST (agent `jd-list`, one instance)
 
+0. **Cross-machine seen-sync first (2026-09-02, both bots agreed; Felix ranked
+   git-sync first on 08-30).** Before triage run
+   `node scripts/pipeline-check.js sync <host>` (`cloud` on the droplet,
+   `local` on the Mac). It pulls `resume-drops`, unions every
+   `state/seen-*.json` into local `state.json`, and republishes the union as
+   `state/seen-<host>.json` (commit + push; no-op when nothing changed). Run it
+   again in Stage 3 after the day's `mark`s so the other machine sees today's
+   keys. Never hand-edit the `state/` files; git is the rendezvous, no live
+   peer handshake is needed.
+
 1. **Source = the daily SWElist email (Felix, 2026-08-26 — replaces the
    SimplifyJobs-lists sweep).** Felix subscribed felixl0808@gmail.com to
    SWElist on 08-26; the email is now the source of the day's jobs, and every

@@ -12,6 +12,11 @@
  *   mark <key>...  record keys as seen (call after each posting is processed)
  *   seed           mark everything currently listed as seen (baseline)
  *   stats          print state summary
+ *   sync <host>    cross-machine seen-sync via the resume-drops repo (2026-09-02):
+ *                  pull, union every state/seen-*.json into local seen, write
+ *                  state/seen-<host>.json (the merged set), commit + push.
+ *                  <host> = cloud (droplet) | local (Mac). Run at the start of
+ *                  Stage 1 (before triage) and again after the day's marks.
  */
 
 const fs = require('fs');
@@ -27,7 +32,7 @@ const STATE = path.join(STATE_DIR, 'state.json');
 // keys. Own lock file — composes with (never nests inside) the outer tailor.lock.
 {
   const cmd = process.argv[2];
-  if ((cmd === 'mark' || cmd === 'seed') && !process.env.ZYLOS_PIPELINE_CHECK_LOCKED) {
+  if ((cmd === 'mark' || cmd === 'seed' || cmd === 'sync') && !process.env.ZYLOS_PIPELINE_CHECK_LOCKED) {
     const LOCK = path.join(STATE_DIR, '.state.lock');
     const r = require('child_process').spawnSync(
       'flock', [LOCK, process.execPath, __filename, ...process.argv.slice(2)],
@@ -185,6 +190,49 @@ if (cmd === 'check') {
   console.log(JSON.stringify({ checked: rows.length, rows }, null, 1));
 } else if (cmd === 'stats') {
   console.log(`seen: ${Object.keys(st.seen).length} postings; state: ${STATE}`);
+} else if (cmd === 'sync') {
+  // Cross-machine dedupe (Felix ranked git-sync first on 2026-08-30; agreed by
+  // both bots 2026-09-02). Each machine publishes its seen set as one file in
+  // resume-drops/state/; every run unions all files into local state, then
+  // republishes the union under its own name. Keys are opaque; the value is
+  // the earliest ISO timestamp any machine saw the key. Survives either bot
+  // being offline — no live peer handshake, git is the rendezvous.
+  const host = process.argv[3];
+  if (!/^[a-z0-9-]+$/.test(host || '')) { console.error('usage: pipeline-check.js sync <host>   (cloud | local)'); process.exit(2); }
+  const DROPS = process.env.RESUME_DROPS_DIR || `${process.env.HOME}/zylos/workspace/resume-drops`;
+  const SDIR = path.join(DROPS, 'state');
+  const git = (args, opts = {}) => execFileSync('git', ['-C', DROPS, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...opts }).trim();
+  try { git(['pull', '-q', '--ff-only']); } catch (e) { console.error('warning: resume-drops pull failed (' + String(e.stderr || e.message).trim().slice(0, 120) + ') — syncing against the local clone'); }
+  fs.mkdirSync(SDIR, { recursive: true });
+  const before = Object.keys(st.seen).length;
+  const peers = {};
+  for (const f of fs.readdirSync(SDIR).filter(n => /^seen-[a-z0-9-]+\.json$/.test(n))) {
+    let d; try { d = JSON.parse(fs.readFileSync(path.join(SDIR, f), 'utf8')); } catch { console.error(`warning: ${f} unreadable, skipped`); continue; }
+    let added = 0;
+    for (const [k, ts] of Object.entries(d.seen || {})) {
+      if (!st.seen[k]) { st.seen[k] = ts; added++; }
+      else if (typeof ts === 'string' && ts < st.seen[k]) st.seen[k] = ts;
+    }
+    peers[f] = { keys: Object.keys(d.seen || {}).length, added };
+  }
+  saveState(st);
+  const mine = path.join(SDIR, `seen-${host}.json`);
+  const out = { host, updated: new Date().toISOString(), count: Object.keys(st.seen).length, seen: st.seen };
+  const prev = fs.existsSync(mine) ? fs.readFileSync(mine, 'utf8') : '';
+  const next = JSON.stringify(out, null, 1);
+  const changed = !prev || JSON.parse(prev).count !== out.count || JSON.stringify(JSON.parse(prev).seen) !== JSON.stringify(out.seen);
+  if (changed) {
+    fs.writeFileSync(mine, next);
+    git(['add', path.join('state', `seen-${host}.json`)]);
+    git(['commit', '-q', '-m', `seen-sync ${host}: ${out.count} keys`]);
+    let pushed = false;
+    for (let attempt = 0; attempt < 2 && !pushed; attempt++) {
+      try { git(['push', '-q']); pushed = true; }
+      catch (e) { try { git(['pull', '-q', '--rebase']); } catch {} }
+    }
+    if (!pushed) console.error('warning: push failed twice — local state is merged, commit left unpushed; next run retries');
+  }
+  console.log(JSON.stringify({ host, before, after: out.count, peers, published: changed }, null, 1));
 } else {
-  console.log('usage: pipeline-check.js check | mark <key>... | seed | stats');
+  console.log('usage: pipeline-check.js check | mark <key>... | seed | stats | sync <host>');
 }
