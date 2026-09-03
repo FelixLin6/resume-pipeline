@@ -47,10 +47,22 @@ already tailored (2026-09-02) and everything that can be a script is one.
    fallback for a question neither covers. Never invent an answer,
    credential, or date — a form demanding a fact none of those hold means
    park it and record the exact question text. Work authorization, degree
-   dates, and skills answered honestly, no inflation. Verification codes
-   over IMAP (`inbox-scan.py`) only when a form demands one — do NOT wait
-   for or scan for confirmation emails, Stage 3 does that. New ATS
+   dates, and skills answered honestly, no inflation. New ATS
    passwords go into `~/zylos/.env` (commented, labeled) — never into chat.
+
+   **Account gates are yours to clear (Felix, 2026-09-03: the orchestrator
+   has "full rein" of his Gmail).** You have full access to
+   felixl0808@gmail.com over IMAP (`inbox-scan.py`). Beyond pulling
+   verification codes when a form demands one: open magic links, complete
+   email-gated ATS account creation, and run password resets when an
+   existing account is wedged (known cases: L3Harris SuccessFactors
+   phone-number collision, J&J Workday sign-in loop). Google-sign-in gates
+   (Eightfold, Microsoft) may be completed while Felix's Google session is
+   warm. Do NOT wait or scan for submission-confirmation emails — Stage 3's
+   job. Two hard limits: (1) codes sent to the CMU andrew.cmu.edu address
+   stay blocked — no access; (2) creating an APPLE ID is Felix's explicit
+   personal carve-out (identity/2FA, his direct call 2026-09-02) — park as
+   `needs-felix` with `unlock: say 'apple ok'`, never create one.
 
    **Free-text and essay answers are assembly, never authorship.** Every
    claim in a written answer — project, technology, metric, role, date,
@@ -83,6 +95,18 @@ already tailored (2026-09-02) and everything that can be a script is one.
    Only if the application FORM itself contradicts the row (term, season,
    degree requirement, location, citizenship): stop, do not submit, and log
    it as DROP-AT-APPLY with both readings quoted.
+
+   **ATS quirks playbook (2026-09-03, joint prod-readiness review):**
+   - **Workday dates:** NEVER open the date-picker widget — it reproducibly
+     crashes Chrome on this stack. Type the date as text (`MM/DD/YYYY`) into
+     the input and press Tab. On a Workday "Something went wrong" page:
+     reload ONCE and re-enter from the saved state before conceding.
+   - **Ashby: one submit attempt, ever.** A spam flag or silent rejection →
+     `outcome: wall` immediately; resubmitting makes the tenant's flag
+     stickier and burns the domain for future days.
+   - **Access Denied / 403 / 429 / tenant 5xx:** these are burst-triggered
+     or transient — `outcome: retry`, and do NOT touch that employer's
+     domain again within your slice; a later wave retries it with delay.
 4. Write outcomes ONLY to
    `~/zylos/workspace/resume-drops/<YYYY-MM-DD>/ledger-part<i>.md`, in the
    COMPACT block format from SKILL.md Stage 2 step f — header line, key/ATS/
@@ -90,6 +114,21 @@ already tailored (2026-09-02) and everything that can be a script is one.
    answers, notes only if unusual. No narrative, no per-field tables. Never
    push, never touch `README.md` or `ledger.md`, never another applier's tab
    or part file.
+
+   **Outcome taxonomy (mandatory since 2026-09-03 — `retry-queue.js` and
+   Stage 3 parse this line, keep the format exact).** The one-line outcome
+   in every block starts with one of:
+   `outcome: submitted` · `outcome: retry, retry_reason: <crash|403|429|access-denied|tenant-5xx|other>`
+   · `outcome: needs-felix, unlock: <the single action Felix must take>`
+   · `outcome: wall` (captcha-class: hCaptcha, DataDome, reCAPTCHA-at-submit).
+   `retry` = transient, a later wave re-attempts it automatically.
+   `needs-felix` = only something Felix personally can do unblocks it (a
+   CMU-address code, the Apple ID call, a fact no source file holds).
+   `wall` = an explicit human-verification puzzle; do not re-attempt.
+   Every block also carries `domain: <employer apply-domain>` and
+   `attempt: <n>` (1 on first try; the orchestrator's prompt tells you n
+   for re-queued keys) — retry-queue.js keys its per-domain delay and
+   attempt tracking off these two lines.
 5. Final output to the orchestrator, compact and machine-readable: per-key
    outcomes with one-line detail. (Study lists come from `tailor.json`, not
    from you.)
