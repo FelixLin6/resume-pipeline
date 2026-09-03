@@ -1,0 +1,33 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Pace Test Form</title></head>
+<body>
+<h1>Sandbox application form</h1>
+<form>
+  <p><label>First Name <input id="fn" type="text"></label></p>
+  <p><label>Last Name <input id="ln" type="text"></label></p>
+  <p><label>Email <input id="em" type="email"></label></p>
+  <p><label>Phone <input id="ph" type="tel"></label></p>
+  <p><label>Address Line 1 <input id="a1" type="text"></label></p>
+  <p><label>City <input id="ci" type="text"></label></p>
+  <p><label>Zip <input id="zp" type="text"></label></p>
+  <p><label>LinkedIn <input id="li" type="url"></label></p>
+  <p><label>GitHub <input id="gh" type="url"></label></p>
+  <p><label>Website <input id="ws" type="url"></label></p>
+  <p>
+    <label for="auth">Are you legally authorized to work in the United States?</label>
+    <input id="auth" role="combobox" aria-expanded="false" aria-controls="auth-list" readonly>
+    <ul id="auth-list" role="listbox" hidden>
+      <li role="option" tabindex="-1">Yes</li>
+      <li role="option" tabindex="-1">No</li>
+    </ul>
+  </p>
+  <p><label>Resume <input id="cv" type="file"></label></p>
+</form>
+<script>
+const auth = document.getElementById('auth'), list = document.getElementById('auth-list');
+auth.addEventListener('click', () => { list.hidden = !list.hidden; auth.setAttribute('aria-expanded', String(!list.hidden)); });
+list.addEventListener('click', e => {
+  if (e.target.role === 'option') { auth.value = e.target.textContent; list.hidden = true; auth.setAttribute('aria-expanded', 'false'); }
+});
+</script>
+</body></html>

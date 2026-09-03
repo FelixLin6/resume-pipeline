@@ -361,6 +361,19 @@ Per job:
       the same label matching and were reviewed but not yet run live;
       `workday` fills only the My Information text fields — Workday's
       pickers stay with `workday-answer.sh` and the tenant rules below.
+      **`--pace` (human-pacing layer, `pace.js`, added 2026-09-03, OFF by
+      default):** jittered field-to-field delays, mouse-path approach +
+      hover before each interaction, and per-character real keystrokes
+      (median inter-key gap ~190ms with log-normal variance) instead of
+      instant fills — targets passive scorers (Ashby spam score,
+      reCAPTCHA v3); explicit puzzles stay a hard wall. Sandbox-verified
+      2026-09-03: report byte-parity with unpaced, ~59s vs ~1.5s per form.
+      NOT yet on the daily path — needs one live paced run + VM review
+      first, then flip the default. **Regression gate (standing rule): any
+      change to pace.js or the stealth path re-runs the sandbox form
+      comparison (`assets/pace-test-form.html` in an isolated
+      `AGENT_BROWSER_SESSION`: unpaced vs paced report parity + keydown
+      instrumentation) before deploy.**
    d. **Finish what the report lists as UNHANDLED / MISSED** — custom
       questions, how-did-you-hear checkboxes, free-text boxes (from the
       bank), any field it could not find — with `find label … fill` or

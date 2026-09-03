@@ -6,7 +6,12 @@
  *
  * Usage (page already open in the session's current tab):
  *   ats-fill.js <greenhouse|lever|ashby|workday|generic> --resume <pdf>
- *               [--profile <json>] [--dry-run] [--no-eeo] [--no-upload]
+ *               [--profile <json>] [--dry-run] [--no-eeo] [--no-upload] [--pace]
+ *
+ * --pace enables the human-pacing layer (pace.js): jittered field-to-field
+ * delays, mouse-path approach, chunked keystrokes instead of instant fills.
+ * OFF by default — the unpaced path stays byte-identical until the paced one
+ * passes a live run (Felix 2026-09-03; prod-readiness review, local lane).
  *
  * What it does: snapshots the accessibility tree, matches known field labels
  * (text boxes, react-select comboboxes, file inputs, standard yes/no and EEO
@@ -25,7 +30,7 @@ const args = process.argv.slice(2);
 const ats = (args.find(a => !a.startsWith('--')) || '').toLowerCase();
 const flag = n => { const i = args.indexOf(`--${n}`); return i === -1 ? null : (args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true); };
 if (!['greenhouse', 'lever', 'ashby', 'workday', 'generic'].includes(ats)) {
-  console.error('usage: ats-fill.js <greenhouse|lever|ashby|workday|generic> --resume <pdf> [--profile <json>] [--dry-run] [--no-eeo] [--no-upload]');
+  console.error('usage: ats-fill.js <greenhouse|lever|ashby|workday|generic> --resume <pdf> [--profile <json>] [--dry-run] [--no-eeo] [--no-upload] [--pace]');
   process.exit(2);
 }
 const DRY = !!flag('dry-run');
@@ -46,14 +51,18 @@ function ab(...a) {
   return { ok: r.status === 0, out: (r.stdout || '') + (r.stderr || '') };
 }
 const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+const pace = require('./pace');
+pace.init({ enabled: !!flag('pace'), dry: DRY, ab });
 
 function snapshot() {
   const { out } = ab('snapshot', '-i');
   const items = [];
   for (const line of out.split('\n')) {
-    const m = line.match(/^\s*-\s+(\w+)\s+"((?:[^"\\]|\\.)*)"\s*(.*?)\[ref=(e\d+)\](.*)$/);
+    // ref may be a standalone bracket ([ref=e3]) or share one with other
+    // attributes ([expanded=false, ref=e2]) depending on agent-browser version.
+    const m = line.match(/^\s*-\s+(\w+)\s+"((?:[^"\\]|\\.)*)"\s*(.*?)\[(?:([^\]]*?)[,\s]\s*)?ref=(e\d+)\](.*)$/);
     if (!m) continue;
-    items.push({ role: m[1], label: m[2].replace(/\\"/g, '"'), ref: m[4], flags: (m[3] + m[5]).trim(), line: line.trim() });
+    items.push({ role: m[1], label: m[2].replace(/\\"/g, '"'), ref: m[5], flags: (m[3] + ' ' + (m[4] || '') + m[6]).trim(), line: line.trim() });
   }
   return items;
 }
@@ -73,8 +82,9 @@ function fillText(role, label, value) {
   const it = find(snapshot(), role, label);
   if (!it) { report.missed.push(`${labelName(label)} (no such field)`); return; }
   handled.add(it.ref + it.label);
-  const r = ab('fill', '@' + it.ref, String(value));
-  (r.ok ? report.filled : report.missed).push(`${it.label} = ${value}`);
+  pace.fieldPause();
+  const r = pace.typeInto(it.ref, String(value));
+  (r.ok ? report.filled : report.missed).push(`${it.label} = ${value}${/fell back to fill/.test(r.out || '') ? ' (pace fallback: fill)' : ''}`);
 }
 
 // react-select style combobox: open, optionally type to filter, click the option.
@@ -84,19 +94,20 @@ function pick(label, options, typeText) {
   if (!it) { report.missed.push(`${labelName(label)} (no such field)`); return false; }
   handled.add(it.ref + it.label);
   if (DRY) { report.picked.push(`${it.label} -> ${opts[0]}`); return true; }
-  if (!/\[expanded\]/.test(it.flags)) ab('click', '@' + it.ref);
-  sleep(600);
+  pace.fieldPause();
+  if (!/\[expanded\]|expanded=true/.test(it.flags)) pace.click(it.ref);
+  pace.paceSleep(600);
   if (typeText) {
     it = find(snapshot(), 'combobox', label) || it;
     ab('fill', '@' + it.ref, typeText);
-    sleep(900);
+    pace.paceSleep(900);
   }
   let visible = snapshot().filter(x => x.role === 'option');
   for (const want of opts) {
     const w = norm(want);
     const opt = visible.find(o => norm(o.label) === w) || visible.find(o => norm(o.label).startsWith(w)) || visible.find(o => norm(o.label).includes(w));
     if (opt) {
-      ab('click', '@' + opt.ref); sleep(500);
+      ab('click', '@' + opt.ref); pace.paceSleep(500);
       report.picked.push(`${it.label} -> ${opt.label}`);
       return true;
     }
@@ -110,6 +121,7 @@ function upload(nth = 0) {
   if (!RESUME || flag('no-upload')) { report.skipped.push('resume upload (no --resume)'); return; }
   const base = path.basename(RESUME);
   if (!DRY && ab('snapshot').out.includes(base)) { report.skipped.push(`resume upload — ${base} already attached`); return; }
+  pace.fieldPause();
   const r = ab('upload', `input[type=file] >> nth=${nth}`, path.resolve(RESUME));
   sleep(1500);
   // Greenhouse replaces the input with a "Remove file" row, so verify by the
@@ -231,7 +243,7 @@ function generic() {
 // ---------- report ----------
 const left = snapshot().filter(it => ['textbox', 'combobox', 'checkbox', 'radio', 'spinbutton'].includes(it.role) && !handled.has(it.ref + it.label)
   && !/toggle flyout/i.test(it.label));
-console.log(`ats-fill ${ats}${DRY ? ' (dry-run)' : ''} — ${P.name.full}`);
+console.log(`ats-fill ${ats}${DRY ? ' (dry-run)' : ''}${pace.enabled() ? ' (paced)' : ''} — ${P.name.full}`);
 const sec = (name, arr) => { if (arr.length) console.log(`\n${name} (${arr.length}):\n  ${arr.join('\n  ')}`); };
 sec('FILLED', report.filled); sec('PICKED', report.picked); sec('MISSED', report.missed); sec('SKIPPED', report.skipped);
 sec('UNHANDLED — yours to do', left.map(it => it.line));
