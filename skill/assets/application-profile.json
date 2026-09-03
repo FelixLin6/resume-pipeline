@@ -199,7 +199,9 @@
     "graduating_before_sept_2027": false,
     "seeking": "Internship",
     "hours_per_week_during_internship": "Full-time (40)",
-    "earliest_start_date": null
+    "open_terms": "Winter 2027, Spring 2027, Summer 2027 (Felix, 2026-09-02).",
+    "earliest_start_date": "2027-01",
+    "earliest_start_date_note": "January 2027 (confirmed by Felix 2026-09-02 as the earliest he would start, i.e. the start of the Winter 2027 term). Full-date rule: 2027-01-01. A required 'earliest start date' / 'when can you begin' field is answered with this — it is entailed by his open-terms window, not a park. If a specific posting is only for a later term (e.g. Summer 2027), give that term's start instead; never give a date earlier than 2027-01."
   },
 
   "compensation": {
@@ -286,7 +288,6 @@
     "date_of_birth (never on file; park if required)",
     "languages_spoken[Chinese].proficiency label",
     "work_experience[*].may_contact_employer",
-    "availability.earliest_start_date (target start beyond 'Summer 2027' never settled)",
     "references.professional (×3) and references.openmax_reference_contact",
     "standard_yes_no_defaults.willing_to_travel / consent_to_drug_screen",
     "security clearance: 'None' is the vault default, never confirmed",

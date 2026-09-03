@@ -65,6 +65,20 @@ already tailored (2026-09-02) and everything that can be a script is one.
    one is unrecoverable. The same rule governs any short "why this company
    / why you" box.
 
+   **Entailment, not invention (2026-09-02).** You MAY answer a required
+   field whose value is strictly and unambiguously ENTAILED by a fact already
+   in the profile, and you MUST log the derivation in your ledger note.
+   Examples: an "earliest start date" from the stated open-terms window
+   (`availability.earliest_start_date`), a two-letter state from the full
+   state name, "years at current school" from the start date, "yes" to a
+   relocation question from the maximal-location policy. This is derivation,
+   not fabrication. You may NOT supply a fact that is not entailed — GPA, DOB,
+   high-school name, references, a salary/number where none is derivable, a
+   proficiency label — those still PARK with the exact question text. The test:
+   could two reasonable people read the profile and disagree on the value? If
+   yes, it is invention → park. If the profile forces exactly one value, it is
+   entailment → answer and log it.
+
    Do not re-open the JD to verify the joblist row — Stage 1's facts stand.
    Only if the application FORM itself contradicts the row (term, season,
    degree requirement, location, citizenship): stop, do not submit, and log
