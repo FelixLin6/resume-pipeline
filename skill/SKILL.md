@@ -473,11 +473,11 @@ account instead of guest flow, typed dates, reload, slower pacing). There is
 **no attempt cap inside the window**. Exit 4 = nothing left (pile empty, or
 `--deadline` passed — remaining `retry` rows are then demoted to
 `needs_felix` with a "retry window closed" unlock note) → go to Stage 3.
-Loop until exit 4 or the deadline.
+Loop until exit 4 or the deadline. Exit 5 = no retry rows but captcha-assist rows still `pending` (see `agent/captcha-assist.md`): run the assist sweep, then call `retry-queue.js` again — never start Stage 3 on exit 5.
 
 ### Stage 3 — RECONCILE (agent `jd-reconcile`, one instance)
 
-Runs only after ALL appliers have returned and `retry-queue.js` exits 4.
+Runs only after ALL appliers have returned and `retry-queue.js` exits 4 (exit 5 means assist rows are pending — sweep first; Stage 3 never runs over open assist tabs).
 
 1. **Merge** every `ledger-part*.md` plus the joblist's dropped/skipped rows
    into one `ledger.md` (email order), then delete the part files.

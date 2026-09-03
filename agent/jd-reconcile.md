@@ -28,7 +28,7 @@ out. You run only after every applier has returned.
    - Before writing the README run
      `node ~/zylos/.claude/skills/resume/scripts/retry-queue.js --day <today>
      [--day <other days in this run>] --deadline <the run's deadline>` and
-     read `retry-wave.json`. It must exit 4 (nothing left to retry); if it
+     read `retry-wave.json`. It must exit 4 (nothing left to retry; exit 5 = captcha-assist rows still pending, hand back to the orchestrator for the sweep and do NOT reconcile); if it
      exits 0 the orchestrator still owes a wave — return that to it instead
      of reconciling. Its `needs_felix` + `wall` lists ARE the manual pile;
      its `submitted` count must match your Applied section.

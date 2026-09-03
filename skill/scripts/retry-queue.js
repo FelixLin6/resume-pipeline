@@ -156,4 +156,6 @@ const wave = {
 const outPath = OUT || path.join(DROPS, days[days.length - 1], 'retry-wave.json');
 fs.writeFileSync(outPath, JSON.stringify(wave, null, 1));
 console.error(`retry-queue: ${recs.length} rows → submitted ${submitted}, retry ${retry.length} (${slices.map(s => s.length).join('+')} across ${slices.length} slice(s)), needs-felix ${needs.length}${past ? ' (deadline passed, retries demoted)' : ''}, assist-pending ${assist.length}, wall ${wall.length} → ${outPath}`);
-if (!retry.length) process.exit(4);
+// Exit codes: 0 = run a wave over `slices`; 4 = nothing left to retry (Stage 3 may proceed);
+// 5 = nothing to retry but captcha-assist rows are still pending — run the assist sweep, NOT Stage 3.
+if (!retry.length) process.exit(assist.length ? 5 : 4);
