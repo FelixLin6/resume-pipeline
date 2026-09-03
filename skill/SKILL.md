@@ -418,7 +418,8 @@ Per job:
       ```
       ## [<email row>] <Company> — <Title> — SUBMITTED|PARKED|FAILED|SKIPPED-REPOST|DROP-AT-APPLY
       - key <uuid> · ATS <greenhouse|…> <form url> · PDF <file name> · applier<i> · <HH:MM PT>
-      - outcome: <submitted | retry, retry_reason: <r> | needs-felix, unlock: <a> | wall> — <one line: confirmation text/URL, or the blocker and exactly what is left>
+      - outcome: <submitted | retry, retry_reason: <r> | needs-felix, unlock: <a> | wall | assist> — <one line: confirmation text/URL, or the blocker and exactly what is left>
+      - assist: <pending | solved | expired>   (captcha-assist rows only; see agent/captcha-assist.md)
       - attempt: <n>
       - domain: <employer apply hostname>
       - filled: ats-fill <n> fields; manual: <field names only, comma-separated>
@@ -432,8 +433,13 @@ Per job:
       5xx, Workday "something went wrong" — a later wave re-attempts it
       automatically), `needs-felix` (only Felix can unblock it; carry the
       single `unlock:` action), or `wall` (explicit human-verification puzzle
-      or an Ashby spam flag — never re-attempt). `scripts/retry-queue.js`
-      parses these lines plus `attempt:` and `domain:`, so keep them exact.
+      or an Ashby spam flag — never re-attempt), or `assist` (captcha-assist is
+      armed and the tab was left open for Felix; carry `assist: pending`,
+      flip to `solved` then rewrite the block as submitted/retry when the
+      sweep finishes it, or `expired` on timeout — `retry-queue.js` holds
+      `pending` rows out of retry until the deadline and files `expired`
+      ones as walls). `scripts/retry-queue.js` parses these lines plus
+      `attempt:` and `domain:`, so keep them exact.
 
       No narrative, no table of every field value, no "verified on the JD
       page" lines, no reasoning. Free-text answers are the one thing Felix

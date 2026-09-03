@@ -66,7 +66,7 @@ function parseBlocks(text, day, file) {
     const outcomeText = field('outcome') || longOutcome();
     // Canonical (applier contract c4d6002): the outcome line LEADS with the taxonomy word,
     // e.g. "retry, retry_reason: 403 — Access Denied on tesla.com". Alt: a separate `- class:` line.
-    const lead = outcomeText.match(/^(submitted|retry|needs-felix|wall)\b[,:]?\s*(.*)$/i);
+    const lead = outcomeText.match(/^(submitted|retry|needs-felix|wall|assist)\b[,:]?\s*(.*)$/i);
     let cls = (field('class') || (lead ? lead[1] : '')).toLowerCase();
     const explicit = !!cls;
     if (!cls) cls = status === 'SUBMITTED' ? 'submitted' : (status === 'PARKED' || status === 'FAILED') ? 'retry' : 'skip';
@@ -85,6 +85,7 @@ function parseBlocks(text, day, file) {
       unlock: field('unlock') || inline('unlock'), attempt: parseInt(field('attempt') || '1', 10) || 1,
       domain: domain || null, url, applier: (p.match(/applier(\d+)/) || [])[0] || null,
       outcome: outcomeText || null, source: path.basename(file), explicit,
+      assist: (field('assist') || inline('assist') || '').toLowerCase() || null, // captcha-assist state: pending|solved|expired
     });
   }
   return out;
@@ -110,10 +111,20 @@ for (const day of days) {
 
 const recs = [...latest.values()];
 const past = deadline && Date.now() >= deadline.getTime();
-const retry = [], needs = [], wall = [];
+const retry = [], needs = [], wall = [], assist = [];
 let submitted = 0;
 for (const r of recs) {
   if (r.class === 'submitted') { submitted++; continue; }
+  // captcha-assist (human-in-loop): `class: assist` + `assist: pending|solved|expired`.
+  // pending → held out of retry (the applier's assist sweep owns it) until the deadline, then wall;
+  // expired → wall; solved → the applier rewrites the block as submitted/retry, so treat a stale
+  // 'solved' like pending rather than guessing.
+  if (r.class === 'assist') {
+    const state = r.assist || 'pending';
+    if (state === 'expired' || past) { wall.push({ ...r, class: 'wall', reason: r.reason || `captcha-assist-${state === 'expired' ? 'expired' : 'unanswered'}` }); }
+    else assist.push(r);
+    continue;
+  }
   if (r.class === 'wall') { wall.push(r); continue; }
   if (r.class === 'needs-felix') { needs.push(r); continue; }
   if (r.class === 'retry') {
@@ -137,11 +148,12 @@ const wave = {
   generated: new Date().toISOString(), days, n: N, deadline: deadline ? deadline.toISOString() : null, deadline_passed: !!past,
   counts: { submitted, retry: retry.length, needs_felix: needs.length, wall: wall.length, total: recs.length },
   retry: retry.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, attempt: r.attempt, reason: r.reason, domain: r.domain, url: r.url, edge: r.edge })),
+  assist: assist.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, state: r.assist || 'pending', reason: r.reason, domain: r.domain, url: r.url })),
   needs_felix: needs.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, unlock: r.unlock, reason: r.reason, demoted: !!r.demoted })),
   wall: wall.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, reason: r.reason })),
   slices,
 };
 const outPath = OUT || path.join(DROPS, days[days.length - 1], 'retry-wave.json');
 fs.writeFileSync(outPath, JSON.stringify(wave, null, 1));
-console.error(`retry-queue: ${recs.length} rows → submitted ${submitted}, retry ${retry.length} (${slices.map(s => s.length).join('+')} across ${slices.length} slice(s)), needs-felix ${needs.length}${past ? ' (deadline passed, retries demoted)' : ''}, wall ${wall.length} → ${outPath}`);
+console.error(`retry-queue: ${recs.length} rows → submitted ${submitted}, retry ${retry.length} (${slices.map(s => s.length).join('+')} across ${slices.length} slice(s)), needs-felix ${needs.length}${past ? ' (deadline passed, retries demoted)' : ''}, assist-pending ${assist.length}, wall ${wall.length} → ${outPath}`);
 if (!retry.length) process.exit(4);
