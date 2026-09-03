@@ -55,7 +55,7 @@ function parseBlocks(text, day, file) {
     const title = titleParts.join(' — ');
     const keyLine = p.match(/^- key:?\s+(\S+)(.*)$/m);
     if (!keyLine) continue;
-    const key = keyLine[1];
+    const key = keyLine[1].replace(/[`*]/g, ''); // tolerate `backticked`/**bold** keys
     const urlMatch = (keyLine[2] || '').match(/https?:\/\/[^\s·]+/);
     const url = urlMatch ? urlMatch[0] : null;
     const field = k => { const m = p.match(new RegExp(`^- ${k}:\\s*(.+)$`, 'mi')); return m ? m[1].trim() : null; };
