@@ -58,6 +58,10 @@ case "${1:-}" in
     [ "$(uname)" = "Darwin" ] || "$HOME/zylos/bin/zylos-browser" display stop || true
     if alive; then pkill -f job-application-profile || true; sleep 3; fi
     pkill -f cdp-ipv4-shim >/dev/null 2>&1 || true
+    # Reap per-session agent-browser daemons — the appliers each spawn one and
+    # they do NOT exit when Chrome dies (2026-09-02: 5 left holding CLOSE_WAIT
+    # on the dead port; on the 2GB droplet that is the leak that matters).
+    pkill -f 'agent-browser.*(serve|daemon|--session)' >/dev/null 2>&1 || true
     if alive; then echo "FAILED: CDP $CDP still answering after stop" >&2; exit 1; fi
     echo "stopped (CDP $CDP dead)"
     ;;

@@ -30,7 +30,13 @@ already tailored (2026-09-02) and everything that can be a script is one.
    before filling anything — the session pointer can jump to the newest tab
    when another applier creates one. Never call `agent-browser` without the
    session variable, never use `zylos-browser` tab commands, and NEVER run
-   `zylos-browser display stop`. **Read the page with `snapshot -i`, not
+   `zylos-browser display stop`. **Tab hygiene (load-bearing after the
+   2026-09-02 incident): close ONLY a tab you personally opened, by its own
+   index — NEVER run a tab-close loop over an index RANGE and NEVER do an
+   end-of-run "cleanup" sweep. Tab indices are shared across all appliers, so
+   a range close silently kills a sibling's in-flight application. When you
+   finish your slice, just stop calling the browser; all teardown is Stage
+   3's job.** **Read the page with `snapshot -i`, not
    screenshots** — screenshots only for the confirmation page and a parked
    state, saved under the day folder's `screenshots/`.
 3. Honesty, always: form facts come ONLY from
