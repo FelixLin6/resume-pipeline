@@ -45,6 +45,7 @@ const COMPILED = LEX.entries.map(e => ({
   res: e.pattern ? [new RegExp(e.pattern, 'g')] : (e.aliases || [e.name]).map(aliasRe),
 }));
 
+const CONCEPTS = ((LEX.concept_terms || {}).terms || []).map(c => ({ ...c, res: (c.aliases || [c.name]).map(a => aliasRe(a)) }));
 // Requirements/qualifications region of a JD: heading → next heading (or 1500 chars).
 const REQ_HEAD = /(?:^|\n)\s*(?:(?:minimum|basic|required|preferred|desired|technical)\s+)?(?:qualifications|requirements|skills?(?: and experience)?|what (?:you|we)(?:'ll| will)? (?:bring|need|look for)|you (?:have|bring|are)|must have|nice to have)\s*:?\s*\n/gi;
 function requirementRegions(text) {
@@ -74,7 +75,25 @@ function matchJD({ text = '', requirements = [] } = {}) {
     hits.push({ name: e.name, cat: e.cat, count: count + reqCount, score: count + 3 * reqCount, first: first === Infinity ? 1e9 : first });
   }
   hits.sort((a, b) => b.score - a.score || CAT_ORDER.get(a.cat) - CAT_ORDER.get(b.cat) || a.first - b.first);
-  const skills = hits.map(h => h.name);
+  // Concept tier (lexicon.concept_terms): phrases the JD itself uses, kept only
+  // when verified in the snapshot; ranked after every concrete hit (ATS matches
+  // the JD's wording; a human skims for concrete tech). Never from chips.
+  const verified = new Set((SNAP.verified || []).map(s => String(s).toLowerCase()));
+  const concepts = [];
+  for (const c of CONCEPTS) {
+    if (!verified.has(c.name)) continue;
+    let count = 0, reqCount = 0, first = Infinity;
+    for (const re of c.res) {
+      re.lastIndex = 0; let m;
+      while ((m = re.exec(body))) { count++; first = Math.min(first, m.index); if (m.index === re.lastIndex) re.lastIndex++; }
+      re.lastIndex = 0;
+      while ((m = re.exec(reqText))) { reqCount++; if (m.index === re.lastIndex) re.lastIndex++; }
+    }
+    if (count || reqCount) concepts.push({ name: c.name, cat: 'concept', count: count + reqCount, score: count + 3 * reqCount, first });
+  }
+  concepts.sort((a, b) => b.score - a.score || a.first - b.first);
+  const skills = [...hits.map(h => h.name), ...concepts.map(c => c.name).filter(n => !hits.some(h => h.name === n))];
+  hits.push(...concepts);
   const hitSet = new Set(skills);
   // Boost (lexicon.kin): explicit trigger → boost groups. Only snapshot-verified
   // skills, never ones the JD already named, in snapshot order.

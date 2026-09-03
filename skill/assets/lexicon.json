@@ -1384,5 +1384,265 @@
     "postgresql"
    ]
   }
+ },
+ "concept_terms": {
+  "_doc": "Concept phrases matched ONLY against JD text (never from chips), kept only if in snapshot.verified (apply-skills places them in the Concepts row). Weight 1 per mention, +3 in requirements, ranked after concrete hits.",
+  "terms": [
+   {
+    "name": "distributed systems",
+    "aliases": [
+     "distributed systems",
+     "distributed computing"
+    ]
+   },
+   {
+    "name": "operating systems",
+    "aliases": [
+     "operating systems",
+     "os internals",
+     "kernel"
+    ]
+   },
+   {
+    "name": "concurrency",
+    "aliases": [
+     "concurrency",
+     "concurrent programming",
+     "multithreading",
+     "multi-threading",
+     "multithreaded",
+     "parallel programming"
+    ]
+   },
+   {
+    "name": "systems programming",
+    "aliases": [
+     "systems programming",
+     "low-level programming",
+     "low level programming"
+    ]
+   },
+   {
+    "name": "networking",
+    "aliases": [
+     "networking",
+     "computer networking",
+     "network protocols",
+     "network programming"
+    ]
+   },
+   {
+    "name": "data structures & algorithms",
+    "aliases": [
+     "data structures and algorithms",
+     "data structures & algorithms",
+     "algorithms and data structures",
+     "data structures",
+     "algorithms"
+    ]
+   },
+   {
+    "name": "machine learning",
+    "aliases": [
+     "machine learning",
+     "deep learning",
+     "neural networks"
+    ]
+   },
+   {
+    "name": "computer vision",
+    "aliases": [
+     "computer vision"
+    ]
+   },
+   {
+    "name": "large language models",
+    "aliases": [
+     "large language models",
+     "llms",
+     "llm",
+     "generative ai",
+     "genai"
+    ]
+   },
+   {
+    "name": "rag",
+    "aliases": [
+     "retrieval-augmented generation",
+     "retrieval augmented generation",
+     "rag"
+    ]
+   },
+   {
+    "name": "embeddings",
+    "aliases": [
+     "embeddings"
+    ]
+   },
+   {
+    "name": "semantic search",
+    "aliases": [
+     "semantic search"
+    ]
+   },
+   {
+    "name": "vector databases",
+    "aliases": [
+     "vector database",
+     "vector databases",
+     "vector search"
+    ]
+   },
+   {
+    "name": "llm evaluation",
+    "aliases": [
+     "llm evaluation",
+     "model evaluation",
+     "evals"
+    ]
+   },
+   {
+    "name": "information retrieval",
+    "aliases": [
+     "information retrieval",
+     "search systems"
+    ]
+   },
+   {
+    "name": "rest api",
+    "aliases": [
+     "rest apis",
+     "restful apis",
+     "rest api",
+     "web apis",
+     "apis"
+    ]
+   },
+   {
+    "name": "api design",
+    "aliases": [
+     "api design"
+    ]
+   },
+   {
+    "name": "authentication",
+    "aliases": [
+     "authentication",
+     "user authentication",
+     "auth flows",
+     "login flows"
+    ]
+   },
+   {
+    "name": "oauth",
+    "aliases": [
+     "oauth",
+     "oauth2",
+     "single sign-on",
+     "sso"
+    ]
+   },
+   {
+    "name": "webhooks",
+    "aliases": [
+     "webhooks"
+    ]
+   },
+   {
+    "name": "databases",
+    "aliases": [
+     "databases",
+     "database design",
+     "relational databases",
+     "database systems"
+    ]
+   },
+   {
+    "name": "testing",
+    "aliases": [
+     "unit testing",
+     "integration testing",
+     "test automation",
+     "test-driven",
+     "tdd",
+     "automated testing",
+     "software testing",
+     "testing frameworks"
+    ]
+   },
+   {
+    "name": "ci-cd",
+    "aliases": [
+     "ci/cd",
+     "continuous integration",
+     "continuous delivery",
+     "continuous deployment"
+    ]
+   },
+   {
+    "name": "agile",
+    "aliases": [
+     "agile",
+     "scrum"
+    ]
+   },
+   {
+    "name": "code review",
+    "aliases": [
+     "code review",
+     "code reviews"
+    ]
+   },
+   {
+    "name": "functional programming",
+    "aliases": [
+     "functional programming"
+    ]
+   },
+   {
+    "name": "web development",
+    "aliases": [
+     "web development",
+     "full-stack",
+     "full stack",
+     "fullstack",
+     "front-end",
+     "frontend",
+     "back-end",
+     "backend"
+    ]
+   },
+   {
+    "name": "microservices",
+    "aliases": [
+     "microservices",
+     "service-oriented"
+    ]
+   },
+   {
+    "name": "observability",
+    "aliases": [
+     "observability",
+     "monitoring and alerting",
+     "distributed tracing"
+    ]
+   },
+   {
+    "name": "scalability",
+    "aliases": [
+     "scalability",
+     "scalable systems",
+     "high availability"
+    ]
+   },
+   {
+    "name": "object-oriented programming",
+    "aliases": [
+     "object-oriented",
+     "object oriented",
+     "oop"
+    ]
+   }
+  ]
  }
 }
