@@ -16,6 +16,20 @@ alive() { curl -s -m 3 "localhost:$CDP/json/version" >/dev/null 2>&1; }
 alive4() { curl -s -m 3 "127.0.0.1:$CDP/json/version" >/dev/null 2>&1; }
 alive6() { curl -s -m 3 "http://[::1]:$CDP/json/version" >/dev/null 2>&1; }
 
+# Kill processes matching a pattern WITHOUT self-immolation. `pkill -f` matches
+# full command lines, so it also kills the caller whose own command mentions the
+# pattern — e.g. a Stage 3 `agent-browser --session x close && pipeline-browser.sh
+# stop` kills its own parent shell mid-teardown (found by zylos-felix-cloud
+# 2026-09-02: its test shell died exit 144). Skip this script and its parent.
+reap() {
+  local pat="$1" pid
+  for pid in $(pgrep -f "$pat" 2>/dev/null); do
+    [ "$pid" = "$$" ] && continue
+    [ "$pid" = "$PPID" ] && continue
+    kill "$pid" 2>/dev/null || true
+  done
+}
+
 # Chrome 149 for Testing binds the DevTools server to ::1 only, even with
 # --remote-debugging-address=127.0.0.1 (seen 2026-09-02: agent-browser's default
 # 127.0.0.1 connect silently fell back to launching isolated browsers → crash
@@ -56,12 +70,12 @@ case "${1:-}" in
     ;;
   stop)
     [ "$(uname)" = "Darwin" ] || "$HOME/zylos/bin/zylos-browser" display stop || true
-    if alive; then pkill -f job-application-profile || true; sleep 3; fi
-    pkill -f cdp-ipv4-shim >/dev/null 2>&1 || true
+    if alive; then reap job-application-profile; sleep 3; fi
+    reap cdp-ipv4-shim
     # Reap per-session agent-browser daemons — the appliers each spawn one and
     # they do NOT exit when Chrome dies (2026-09-02: 5 left holding CLOSE_WAIT
     # on the dead port; on the 2GB droplet that is the leak that matters).
-    pkill -f 'agent-browser.*(serve|daemon|--session)' >/dev/null 2>&1 || true
+    reap 'agent-browser.*(serve|daemon|--session)'
     if alive; then echo "FAILED: CDP $CDP still answering after stop" >&2; exit 1; fi
     echo "stopped (CDP $CDP dead)"
     ;;
