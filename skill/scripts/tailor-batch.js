@@ -5,6 +5,14 @@
  * each applier under a global lock, one compile loop at a time, on the
  * critical path of every application).
  *
+ * Bespoke Resume Workflow (Felix's pivot 2026-09-03): the tailoring input is the
+ * posting's OWN text, matched deterministically against assets/lexicon.json by
+ * jd-match.js (languages/frameworks/tools/databases/platforms). Simplify's chips
+ * are the fallback only when no JD text is on file. JD text comes from the run's
+ * jdfacts.json (sibling of joblist.json, written by jd-fetch.js): requirements +
+ * description (+ jd_text for ATS-resolved rows). Each job tailors on its own
+ * local branch of my_resume (apply-<key8>), never pushed.
+ *
  * Per selected row: jd-skills add (dataset) → apply-skills.js (Skills section
  * tailored, one page) → PDF written straight into the resume-drops day folder.
  * Rows run in parallel LANES, each lane a git worktree of my_resume, so the
@@ -136,16 +144,46 @@ function run(cmd, args, opts = {}) {
   });
 }
 
+const { matchJD, canonical } = require(path.join(SCRIPTS, 'jd-match.js'));
+const MIN_JD_MATCHES = 3;
+// jdfacts.json sits next to joblist.json (Stage 1 writes both). Index by key.
+const jdFacts = (() => {
+  const f = path.join(path.dirname(joblistPath), 'jdfacts.json');
+  if (!fs.existsSync(f)) { console.error(`tailor-batch: no ${f} — falling back to Simplify chips for every row`); return new Map(); }
+  const j = JSON.parse(fs.readFileSync(f, 'utf8'));
+  const rows = Array.isArray(j) ? j : (j.rows || []);
+  return new Map(rows.filter(r => r && r.key).map(r => [r.key, r]));
+})();
+function jdInputFor(row) {
+  const f = jdFacts.get(row.key);
+  const text = f ? [f.jd_text, f.description, ...(f.requirements || [])].filter(Boolean).join('\n') : '';
+  const chips = (row.skills || []).filter(Boolean);
+  // Concrete chips only: a chip that maps onto the lexicon is real signal from the same JD;
+  // concept chips ("Distributed Systems", "Web Development") are what Felix wants gone.
+  const concrete = [...new Set(chips.map(canonical).filter(Boolean))];
+  if (text.trim()) {
+    const m = matchJD({ text, requirements: f.requirements || [] });
+    const merged = [...new Set([...m.skills, ...concrete])];
+    if (m.skills.length >= MIN_JD_MATCHES) return { skills: merged, boost: m.boost, source: 'jd-text', matched: m.skills.length, chips_kept: merged.length - m.skills.length };
+    if (concrete.length) return { skills: merged, boost: m.boost, source: 'jd-text+chips', matched: m.skills.length, chips_kept: concrete.length, note: `only ${m.skills.length} lexicon hits in JD text` };
+    return { skills: chips, boost: m.boost, source: 'simplify', matched: m.skills.length, note: 'no lexicon hits and no concrete chips — raw chips' };
+  }
+  if (concrete.length) return { skills: concrete, boost: [], source: 'chips', matched: 0, chips_kept: concrete.length, note: 'no JD text on file' };
+  return { skills: chips, boost: [], source: 'simplify', matched: 0, note: 'no JD text on file, raw chips' };
+}
+
 async function tailorRow(row, lane) {
-  const skills = (row.skills || []).filter(Boolean);
-  const rec = { company: row.company, title: row.title, lane: lane.i, started: new Date().toISOString() };
-  if (!skills.length) return { ...rec, status: 'failed', error: 'row has no skills list' };
+  const input = jdInputFor(row);
+  const skills = input.skills;
+  const rec = { company: row.company, title: row.title, lane: lane.i, started: new Date().toISOString(),
+    skills_source: input.source, jd_matched: input.matched, chips_kept: input.chips_kept || 0, ...(input.note ? { source_note: input.note } : {}) };
+  if (!skills.length) return { ...rec, status: 'failed', error: 'row has no skills list (no JD text and no chips)' };
   const stdin = skills.join('\n') + '\n';
 
   // 1. dataset row — a duplicate refusal means repost: mark seen, no tailoring.
   const addArgs = ['add', '--role', row.title, '--role-clean', row.role_clean || row.title,
     '--company', row.company, '--category', categoryFor(row), '--level', 'intern',
-    '--source', row.skills_source === 'jd-text' ? 'jd-text' : 'simplify'];
+    '--source', input.source];
   if (row.apply_link) addArgs.push('--url', row.apply_link);
   const add = await run(process.execPath, [JD_SKILLS, ...addArgs], { stdin });
   if (add.code !== 0) {
@@ -161,8 +199,9 @@ async function tailorRow(row, lane) {
   const pdf = path.join(dayDir, pdfName);
   const report = path.join(runDir, 'tailor', `${slug(row.key).slice(0, 60)}.json`);
   const ap = await run(process.execPath, [path.join(SCRIPTS, 'apply-skills.js'),
-    '--company', row.company, '--role', row.title, '--out', pdf, '--json', report],
-  { stdin, env: { RESUME_REPO: lane.dir, RESUME_APPLY_BRANCH: lane.branch } });
+    '--company', row.company, '--role', row.title, '--out', pdf, '--json', report,
+    ...(input.boost.length ? ['--boost', input.boost.join(',')] : [])],
+  { stdin, env: { RESUME_REPO: lane.dir, RESUME_APPLY_BRANCH: `apply-${String(row.key).replace(/[^0-9a-z]/gi, '').slice(0, 8)}` } });
   if (ap.code !== 0 || !fs.existsSync(pdf)) {
     return { ...rec, status: 'failed', error: `apply-skills: ${(ap.err || ap.out).trim().slice(-600)}` };
   }

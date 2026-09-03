@@ -9,6 +9,8 @@
  * Usage:
  *   apply-skills.js --company Verkada [--role "SWE Intern"] [--keywords "a, b"] [--dry-run]
  *                   [--out <pdf path>] [--json <report path>] [--fit measured|compile]
+ *                   [--boost "a, b"]   (jd-match.js output: filler to pull forward)
+ *                   [--max-unboosted N] (cap on filler outside --boost; default 6 with --boost)
  *   ... or pipe the skill list on stdin.
  *
  * --out      write the tailored PDF straight to this path (tailor-batch.js uses
@@ -144,6 +146,10 @@ const DISPLAY = {
   'cad': 'CAD', 'plc': 'PLC', 'can': 'CAN', 'can bus': 'CAN Bus', 'spi': 'SPI', 'i2c': 'I2C', 'uart': 'UART',
   'usb': 'USB', 'pcb': 'PCB', 'rf': 'RF', 'dsp': 'DSP', 'asic': 'ASIC', 'soc': 'SoC', 'vhdl': 'VHDL',
   'verilog': 'Verilog', 'systemverilog': 'SystemVerilog', 'uvm': 'UVM', 'rtl': 'RTL',
+  // 2026-09-03 (Bespoke lexicon names)
+  'tailwind css': 'Tailwind CSS', 'freertos': 'FreeRTOS', 'mqtt': 'MQTT', 'netsuite': 'NetSuite', 'sap': 'SAP',
+  'hpc': 'HPC', 'fpga': 'FPGA', 'tcp/ip': 'TCP/IP', 'cmake': 'CMake', 'vs code': 'VS Code', 'onnx': 'ONNX',
+  'ollama': 'Ollama', 'swiftui': 'SwiftUI', 'graphql': 'GraphQL', 'mlflow': 'MLflow', 'websockets': 'WebSockets',
 };
 function display(n) {
   if (DISPLAY[n]) return DISPLAY[n];
@@ -160,8 +166,26 @@ for (const part of rawInput.split(/[\n,]+/)) {
   jdSkills.push(n);
 }
 
-// Snapshot top-up: verified skills the JD did not mention, in snapshot order.
-const filler = snapshot.verified.map(norm).filter(s => !seen.has(s));
+// Snapshot top-up: verified skills the JD did not mention. Order (Bespoke,
+// 2026-09-03 — before this every résumé carried the same filler tail):
+//   1. --boost skills (jd-match.js: snapshot skills sharing a lexicon category
+//      with a JD hit), in snapshot order;
+//   2. the rest in snapshot order (Felix's major-first priority), capped by
+//      --max-unboosted so the un-related tail stays short and constant-ish
+//      (his core stack) instead of a full dump.
+// Trimming works from the tail, so the least JD-relevant filler drops first.
+const rawFiller = snapshot.verified.map(norm).filter(s => !seen.has(s));
+const boostSet = new Set(String(flags.boost && flags.boost !== true ? flags.boost : '').split(/[\n,]+/).map(norm).filter(Boolean));
+// --max-unboosted N (default 6 when --boost is given, unlimited otherwise): the
+// un-boosted remainder is what made every résumé end in the same tail, so only
+// the first N of it (by row relevance) may appear; the page is allowed to run
+// short instead. Felix can raise it per run.
+const maxUnboosted = flags['max-unboosted'] != null && flags['max-unboosted'] !== true
+  ? parseInt(flags['max-unboosted'], 10) : (boostSet.size ? 6 : Infinity);
+const filler = [
+  ...rawFiller.filter(s => boostSet.has(s)),
+  ...rawFiller.filter(s => !boostSet.has(s)).slice(0, maxUnboosted),
+];
 
 // ---------- render ----------
 function rowsFor(list) {

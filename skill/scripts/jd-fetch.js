@@ -139,7 +139,7 @@ function parseSimplify(body, uuid, row, final) {
     functions: (jp.functions || []).map(f => f.title),
     requirements: (jp.requirements || []).slice(0, 25).map(s => String(s).slice(0, 400)),
     degree_text: sentencesMatching(texts, DEGREE_RE), term_text: sentencesMatching(texts, TERM_RE),
-    description: stripHtml(jp.description || '').slice(0, 1500) || null,
+    description: stripHtml(jp.description || '').slice(0, 8000) || null, // full JD copy: jd-match.js scans it (2026-09-03; was 1500)
   };
 }
 
