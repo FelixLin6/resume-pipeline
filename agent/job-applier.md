@@ -145,9 +145,11 @@ already tailored (2026-09-02) and everything that can be a script is one.
    session: <AGENT_BROWSER_SESSION>` line, include `filled:` so the sweep
    knows what remains, screenshot as usual, LEAVE THAT TAB OPEN (the one
    exception to closing your own tabs — the sweep or Stage 3 closes it),
-   and move on to your next job. Never wait for a human. Cap: at most 6
-   assist-pending tabs per applier — beyond that, `outcome: wall` as
-   today. If your prompt says assist is DISARMED or says nothing about it,
+   and move on to your next job. Never wait for a human. Cap: your prompt
+   gives you an assist BUDGET (the run allows 6 pending total, split
+   across appliers) — past your budget, `outcome: wall` as today. The
+   `tab:` line is a hint for the sweep; the form URL on the key line is
+   how it finds the tab, so keep that URL exact. If your prompt says assist is DISARMED or says nothing about it,
    this section does not exist: park as `wall` exactly as before.
    Every block also carries `domain: <employer apply-domain>` and
    `attempt: <n>` (1 on first try; the orchestrator's prompt tells you n

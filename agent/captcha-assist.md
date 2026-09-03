@@ -57,7 +57,7 @@ Felix solves the puzzle(s) directly in the visible browser and replies `done` (a
 
 Triggered by Felix's `done`, at wave end, or on retry-queue **exit 5** (no retry rows left but assists pending — 842244c; never start Stage 3 on exit 5), a sweep visits each pending tab and:
 
-- Confirms the challenge is gone. If cleared: completes the SAME attempt — remaining fields, submit, confirmation screenshot — and rewrites the block per the shipped contract: `outcome: submitted` (or `retry` — whatever truthfully happened) with `- assist: solved` kept as provenance.
+- Locates the row's tab by the FORM URL from the key line — `tab:` index is a hint only, since indices shift as other tabs close (VM's 2nd-pass note). Confirms the challenge is gone. If cleared: completes the SAME attempt — remaining fields, submit, confirmation screenshot — and rewrites the block per the shipped contract: `outcome: submitted` (or `retry` — whatever truthfully happened) with `- assist: solved` kept as provenance.
 - If the puzzle is still there, the tab is gone, or the form state was lost: `assist: expired` and the block otherwise reverts to today's semantics; the tab is closed.
 
 The sweep is a DEDICATED job-applier instance spawned by the orchestrator with retry-wave.json's `assist` array as its slice — never a message into a running applier, and the orchestrator never drives tabs itself (wrong model tier, blocks the main loop, breaks own-tab rules). It counts toward the max-2-appliers cap: if both slots are busy when `done` arrives, the sweep queues until a slot frees. **Run-end order is fixed: sweep → retry-queue (with deadline) → Stage 3** — running retry-queue first would demote pending rows to walls before the sweep touches them. Stage 3 never runs, and the browser is never stopped, while assist rows are still `pending`.
@@ -90,4 +90,4 @@ The sweep is a DEDICATED job-applier instance spawned by the orchestrator with r
 
 1. Sweep identity: DEDICATED sweep applier spawned by the orchestrator, slice = the `assist` array; never message a running applier.
 2. Mid-wave `done` with both slots busy: queue until a slot frees; the orchestrator must never drive tabs itself.
-3. Max-open-assist-tabs guard: YES, cap 6 — beyond it the applier instant-parks (`outcome: wall`) as today.
+3. Max-open-assist-tabs guard: YES, cap **6 TOTAL per run** (VM's 2nd-pass note) — appliers can't see each other's ledgers, so the orchestrator hands each applier a budget of floor(6/N) in its prompt (3 each at N=2); past its budget the applier instant-parks (`outcome: wall`) as today.
