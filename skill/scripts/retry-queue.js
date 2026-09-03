@@ -60,7 +60,9 @@ function parseBlocks(text, day, file) {
     const url = urlMatch ? urlMatch[0] : null;
     const field = k => { const m = p.match(new RegExp(`^- ${k}:\\s*(.+)$`, 'mi')); return m ? m[1].trim() : null; };
     const status = h[3];
-    const outcomeText = field('outcome') || '';
+    // Long-form (pre-compact) blocks carry `**Outcome: …**` / `Outcome: …` instead of `- outcome:`.
+    const longOutcome = () => { const m = p.match(/^\**outcome:?\**\s*(.+)$/im); return m ? m[1].replace(/\*+$/, '').trim() : ''; };
+    const outcomeText = field('outcome') || longOutcome();
     // Canonical (applier contract c4d6002): the outcome line LEADS with the taxonomy word,
     // e.g. "retry, retry_reason: 403 — Access Denied on tesla.com". Alt: a separate `- class:` line.
     const lead = outcomeText.match(/^(submitted|retry|needs-felix|wall)\b[,:]?\s*(.*)$/i);
@@ -81,7 +83,7 @@ function parseBlocks(text, day, file) {
       reason,
       unlock: field('unlock') || inline('unlock'), attempt: parseInt(field('attempt') || '1', 10) || 1,
       domain: domain || null, url, applier: (p.match(/applier(\d+)/) || [])[0] || null,
-      outcome: outcomeText || null, source: path.basename(file),
+      outcome: outcomeText || null, source: path.basename(file), explicit,
     });
   }
   return out;
@@ -93,7 +95,16 @@ for (const day of days) {
   if (!fs.existsSync(dir)) { console.error(`warning: ${dir} missing, skipped`); continue; }
   const files = ['ledger.md', ...fs.readdirSync(dir).filter(f => /^ledger-part\d*\.md$/.test(f)).sort()]
     .map(f => path.join(dir, f)).filter(fs.existsSync);
-  for (const f of files) for (const r of parseBlocks(fs.readFileSync(f, 'utf8'), day, f)) latest.set(r.key, r);
+  for (const f of files) for (const r of parseBlocks(fs.readFileSync(f, 'utf8'), day, f)) {
+    // History-aware: an UNCLASSIFIED park must not wash out an earlier wall for the same key
+    // (WhatNot 09-01: spam-flagged twice, then an unclassified block let it back into retry).
+    // An explicit `class: retry` still overrides — that is the applier deliberately retrying.
+    const prev = latest.get(r.key);
+    const wallBefore = !!(prev && (prev.class === 'wall' || prev.wallHistory));
+    if (prev && wallBefore && r.class === 'retry' && !r.explicit) { r.class = 'wall'; r.reason = prev.reason; r.inheritedWall = true; }
+    r.wallHistory = wallBefore || r.class === 'wall';
+    latest.set(r.key, r);
+  }
 }
 
 const recs = [...latest.values()];
