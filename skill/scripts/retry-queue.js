@@ -50,6 +50,7 @@ function parseBlocks(text, day, file) {
   for (const p of parts) {
     const h = p.match(/^## \[([^\]]*)\]\s+(.*?)\s+—\s+(SUBMITTED|PARKED|FAILED|RETRY|WALL|SKIPPED-REPOST|DROP-AT-APPLY)\b(?:\s+—.*)?\s*$/m); // trailing ' — note' tolerated
     if (!h) continue;
+    if (/^superseded\b/i.test(h[1])) continue; // `## [superseded attempt N] [<key>] …` = historical block, never the live result
     const headerRest = h[2];
     const [company, ...titleParts] = headerRest.split(' — ');
     const title = titleParts.join(' — ');
