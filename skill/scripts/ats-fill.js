@@ -129,17 +129,25 @@ function pick(label, options, typeText) {
   return false;
 }
 
-function upload(nth = 0) {
+// `target` is an nth index into input[type=file], or a CSS selector string.
+// `fallbackNth` is tried when a selector target is absent on the page (e.g. an
+// Ashby tenant without the system resume field).
+function upload(target = 0, fallbackNth = null) {
   if (!RESUME || flag('no-upload')) { report.skipped.push('resume upload (no --resume)'); return; }
   const base = path.basename(RESUME);
   if (!DRY && ab('snapshot').out.includes(base)) { report.skipped.push(`resume upload — ${base} already attached`); return; }
   pace.fieldPause();
-  const r = ab('upload', `input[type=file] >> nth=${nth}`, path.resolve(RESUME));
+  let sel = typeof target === 'number' ? `input[type=file] >> nth=${target}` : target;
+  let r = ab('upload', sel, path.resolve(RESUME));
+  if (!r.ok && typeof target !== 'number' && fallbackNth !== null) {
+    sel = `input[type=file] >> nth=${fallbackNth}`;
+    r = ab('upload', sel, path.resolve(RESUME));
+  }
   sleep(1500);
   // Greenhouse replaces the input with a "Remove file" row, so verify by the
   // file name showing up in the page, not by the input's file list.
   const ok = DRY || (r.ok && ab('snapshot').out.includes(base));
-  (ok ? report.filled : report.missed).push(`resume upload (file input #${nth}) = ${base}${ok ? '' : ' — NOT visible on the page after upload'}`);
+  (ok ? report.filled : report.missed).push(`resume upload (${sel}) = ${base}${ok ? '' : ' — NOT visible on the page after upload'}`);
 }
 
 // Standard yes/no questions answerable from the profile alone.
@@ -217,7 +225,9 @@ function ashby() {
   fillText('textbox', /github/i, P.links.github);
   fillText('textbox', /website|portfolio/i, P.links.website);
   fillText('textbox', /^location|^current location|^city/i, `${P.address.city}, ${P.address.state}`);
-  upload(0);
+  // Ashby renders an "autofill from resume" file input BEFORE the real resume
+  // field; nth=0 hit the autofill one (Mac, 4 Ashby days of manual re-upload).
+  upload('#_systemfield_resume', 0);
   standardQuestions(snapshot());
   eeoQuestions();
 }
