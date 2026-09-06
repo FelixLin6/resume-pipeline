@@ -11,7 +11,7 @@
  *
  * Reads: resume-drops/<day>/ledger-part*.md and ledger.md (compact blocks,
  *   see SKILL.md Stage 2 step f). Parses per block:
- *     ## [<row>] <Company> — <Title> — SUBMITTED|PARKED|FAILED|RETRY|WALL|SKIPPED-REPOST|DROP-AT-APPLY
+ *     ## [<row>] <Company> — <Title> — SUBMITTED|PARKED|FAILED|RETRY|WALL|NEEDS-FELIX|ASSIST|SKIPPED-REPOST|DROP-AT-APPLY
  *     - key <uuid> · ATS <ats> <form url> · PDF <file> · applier<i> · <HH:MM PT>
  *     - outcome: submitted | retry, retry_reason: <r> | needs-felix, unlock: <a> | wall   ← canonical
  *       (applier contract c4d6002: the taxonomy word leads the existing outcome line; free
@@ -48,7 +48,7 @@ function parseBlocks(text, day, file) {
   const out = [];
   const parts = text.split(/^(?=## \[)/m);
   for (const p of parts) {
-    const h = p.match(/^## \[([^\]]*)\]\s+(.*?)\s+—\s+(SUBMITTED|PARKED|FAILED|RETRY|WALL|SKIPPED-REPOST|DROP-AT-APPLY)\b(?:\s+—.*)?\s*$/m); // trailing ' — note' tolerated
+    const h = p.match(/^## \[([^\]]*)\]\s+(.*?)\s+—\s+(SUBMITTED|PARKED|FAILED|RETRY|WALL|NEEDS-FELIX|ASSIST|SKIPPED-REPOST|DROP-AT-APPLY)\b(?:\s+—.*)?\s*$/m); // trailing ' — note' tolerated. Label set pinned in SKILL.md §f — keep in sync
     if (!h) continue;
     if (/^superseded\b/i.test(h[1])) continue; // `## [superseded attempt N] [<key>] …` = historical block, never the live result
     const headerRest = h[2];
@@ -70,7 +70,7 @@ function parseBlocks(text, day, file) {
     const lead = outcomeText.match(/^(submitted|retry|needs-felix|wall|assist)\b[,:]?\s*(.*)$/i);
     let cls = (field('class') || (lead ? lead[1] : '')).toLowerCase();
     const explicit = !!cls;
-    if (!cls) cls = status === 'SUBMITTED' ? 'submitted' : status === 'WALL' ? 'wall' : (status === 'PARKED' || status === 'FAILED' || status === 'RETRY') ? 'retry' : 'skip';
+    if (!cls) cls = status === 'SUBMITTED' ? 'submitted' : status === 'WALL' ? 'wall' : status === 'NEEDS-FELIX' ? 'needs-felix' : status === 'ASSIST' ? 'assist' : (status === 'PARKED' || status === 'FAILED' || status === 'RETRY') ? 'retry' : 'skip';
     // Heuristic safety net: an unclassified park whose outcome text names a captcha is a wall, not a retry.
     if (cls === 'retry' && !explicit && WALL.test(outcomeText)) cls = 'wall';
     const inline = k => { const m = (lead ? lead[2] : '').match(new RegExp(`${k}:\\s*([^—]+?)(?:\\s+—|$)`, 'i')); return m ? m[1].trim().replace(/[,;]$/, '') : null; };

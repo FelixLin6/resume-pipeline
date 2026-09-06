@@ -431,7 +431,7 @@ Per job:
       format** — one block per posting, nothing else:
 
       ```
-      ## [<email row>] <Company> — <Title> — SUBMITTED|PARKED|FAILED|SKIPPED-REPOST|DROP-AT-APPLY
+      ## [<email row>] <Company> — <Title> — SUBMITTED|PARKED|FAILED|RETRY|WALL|NEEDS-FELIX|ASSIST|SKIPPED-REPOST|DROP-AT-APPLY
       - key <uuid> · ATS <greenhouse|…> <form url> · PDF <file name> · applier<i> · <HH:MM PT>
       - outcome: <submitted | retry, retry_reason: <r> | needs-felix, unlock: <a> | wall | assist> — <one line: confirmation text/URL, or the blocker and exactly what is left>
       - assist: <pending | solved | expired>   (captcha-assist rows only; see agent/captcha-assist.md)
@@ -441,6 +441,8 @@ Per job:
       - answers: <ONLY free-text boxes, verbatim, each as "Q → A"; omit line if none>
       - notes: <only if unusual — account created (.env label), contradiction with joblist, ATS error>
       ```
+
+      **Header label set is PINNED (2026-09-05):** the trailing status word must be one of the nine above, verbatim — `scripts/retry-queue.js` and the Mac's reconcile parser both key on it and silently skip any block with an unknown label (09-05: Nokia vanished from the retry census that way). Do not invent new labels; add one here and in both parsers first.
 
       **Outcome taxonomy (2026-09-03, joint review; full rules in
       `agent/job-applier.md`):** the `outcome:` line LEADS with exactly one of
