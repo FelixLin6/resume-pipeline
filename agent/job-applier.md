@@ -105,9 +105,13 @@ already tailored (2026-09-02) and everything that can be a script is one.
 
    **ATS quirks playbook (2026-09-03 UTC, joint prod-readiness review):**
    - **Workday dates:** NEVER open the date-picker widget — it reproducibly
-     crashes Chrome on this stack. Type the date as text (`MM/DD/YYYY`) into
-     the input and press Tab. On a Workday "Something went wrong" page:
-     reload ONCE and re-enter from the saved state before conceding.
+     crashes Chrome on this stack. A Workday date is THREE spinbuttons (MM,
+     DD, YYYY): `fill @ref` each one with its value — exactly 3 calls, then
+     Tab. NEVER type a date with per-digit `press` bursts: rapid key bursts
+     into these spinbuttons wedged/crashed the shared CDP session 9× on
+     2026-09-07 and garble the year (2026 → 2006); `fill` stopped both. On a
+     Workday "Something went wrong" page: reload ONCE and re-enter from the
+     saved state before conceding.
    - **Ashby: one submit attempt, ever.** A spam flag or silent rejection →
      `outcome: wall` immediately; resubmitting makes the tenant's flag
      stickier and burns the domain for future days.

@@ -12,7 +12,13 @@ if [ -z "$ref" ]; then echo "NO BUTTON at index $idx"; echo "$list"; exit 1; fi
 echo "target[$idx]: $target"
 agent-browser click "@$ref" >/dev/null 2>&1; sleep 2
 opts=$(~/zylos/bin/zylos-browser snapshot -i 2>&1 | grep -i 'option "')
-m=$(echo "$opts" | grep -iE "$pat" | head -1)
+# Anchored matching (2026-09-07: unanchored "male" picked "Female", veteran
+# picked the wrong option). Order: whole-label match, then label-anchored
+# regex, then substring as a last resort (flagged so the applier re-checks).
+labels=$(echo "$opts" | sed -E 's/^.*option "((\\.|[^"\\])*)".*$/\1/')
+m=$(paste -d'\t' <(echo "$labels") <(echo "$opts") | awk -F'\t' -v p="$pat" 'BEGIN{IGNORECASE=1} tolower($1)==tolower(p){print $2; exit}')
+[ -z "$m" ] && m=$(paste -d'\t' <(echo "$labels") <(echo "$opts") | awk -F'\t' -v p="$pat" 'BEGIN{IGNORECASE=1} $1 ~ ("^(" p ")$"){print $2; exit}')
+if [ -z "$m" ]; then m=$(echo "$opts" | grep -iE "$pat" | head -1); [ -n "$m" ] && echo "  (substring match only — verify) "; fi
 mref=$(echo "$m" | grep -o 'ref=e[0-9]*' | cut -d= -f2)
 if [ -z "$mref" ]; then echo "NO MATCH '$pat'"; echo "$opts"|head -25; agent-browser press Escape >/dev/null 2>&1; exit 1; fi
 agent-browser click "@$mref" >/dev/null 2>&1; sleep 1

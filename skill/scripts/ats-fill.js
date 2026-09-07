@@ -117,7 +117,9 @@ function pick(label, options, typeText) {
   let visible = snapshot().filter(x => x.role === 'option');
   for (const want of opts) {
     const w = norm(want);
-    const opt = visible.find(o => norm(o.label) === w) || visible.find(o => norm(o.label).startsWith(w)) || visible.find(o => norm(o.label).includes(w));
+    // word-boundary, not bare includes: "male" must not match "Female" (Mac 2026-09-07)
+    const wordRe = new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b');
+    const opt = visible.find(o => norm(o.label) === w) || visible.find(o => norm(o.label).startsWith(w)) || visible.find(o => wordRe.test(norm(o.label)));
     if (opt) {
       pace.click(opt.ref); pace.paceSleep(500);
       report.picked.push(`${it.label} -> ${opt.label}`);

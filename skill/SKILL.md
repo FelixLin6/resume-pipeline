@@ -418,7 +418,9 @@ Per job:
       via `inbox-scan.py`. School / Field-of-Study pickers are not free
       text — type the name, then a literal `press Enter` to render results
       ("Computer Science / Information Technology" where a tenant has no AI
-      entry). Textareas must be entered with real click + keystrokes, not
+      entry). Dates are three spinbuttons (MM / DD / YYYY): `fill @ref`
+      each, 3 calls, then Tab — never per-digit `press` bursts (CDP crashes
+      + 2026→2006 year garbling, Mac 2026-09-07). Textareas must be entered with real click + keystrokes, not
       DOM assignment (Blue Origin, 2026-09-01: values set by script render
       but fail Workday's validation). "Use My Last Application" autofill is
       fine but verify the attached PDF is the right file for the posting and
