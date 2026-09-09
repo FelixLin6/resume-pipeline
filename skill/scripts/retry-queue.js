@@ -27,7 +27,16 @@
  * Usage:
  *   retry-queue.js --day 2026-09-01 [--day 2026-09-02] [--n 2]
  *                  [--deadline "2026-09-03T01:46:00-07:00"] [--drops <dir>] [--out <file>]
+ *                  [--runs <dir>]   (joblist.json root, default ~/zylos/vault/jd-pipeline/runs)
  *   Exit 0 with a wave, exit 4 when nothing is left to retry (pile empty or deadline passed).
+ *
+ * Coverage (Mac 2026-09-08: wave-1 slicing silently skipped a contiguous 20-posting band and
+ * this script exit-4'd clean over it, because it censused only keys that already had a block):
+ * every `status: selected` row in the day's joblist.json with NO ledger block at all is a
+ * never-assigned key. Those are listed loudly on stderr, reported under `unassigned` in the
+ * wave file, and pushed into the retry wave as attempt 1 (reason `never-assigned`) so the hole
+ * heals itself — this script never exits 4 while a selected key has zero blocks. A missing
+ * joblist.json is a warning, not an error (older runs / droplet without the vault dir).
  */
 const fs = require('fs');
 const path = require('path');
@@ -39,6 +48,7 @@ const N = Math.max(1, parseInt(opt('n', '2'), 10) || 2);
 const DROPS = opt('drops', `${process.env.HOME}/zylos/workspace/resume-drops`);
 const deadline = opt('deadline', null) ? new Date(opt('deadline')) : null;
 const OUT = opt('out', null);
+const RUNS = opt('runs', `${process.env.HOME}/zylos/vault/jd-pipeline/runs`);
 if (!days.length) { console.error('usage: retry-queue.js --day <YYYY-MM-DD> [--day …] [--n 2] [--deadline <ISO>] [--drops <dir>] [--out <file>]'); process.exit(2); }
 
 const EDGE = /access.?denied|\b403\b|\b429\b|rate.?limit|edge|akamai|cloudflare|forbidden/i;
@@ -110,6 +120,28 @@ for (const day of days) {
   }
 }
 
+// Joblist coverage: selected keys that never got a ledger block (see header).
+const unassigned = [];
+for (const day of days) {
+  const jl = path.join(RUNS, day, 'joblist.json');
+  if (!fs.existsSync(jl)) { console.error(`warning: ${jl} missing — coverage check skipped for ${day}`); continue; }
+  let rows = [];
+  try { rows = JSON.parse(fs.readFileSync(jl, 'utf8')).rows || []; } catch (e) { console.error(`warning: ${jl} unreadable (${e.message}) — coverage check skipped`); continue; }
+  for (const row of rows) {
+    if (row.status !== 'selected' || !row.key || latest.has(row.key)) continue;
+    const url = row.apply_link || row.link || null;
+    let domain = null;
+    if (url) { try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch { /* ignore */ } }
+    if (domain && /simplify\.jobs$/.test(domain)) domain = null;
+    unassigned.push({ key: row.key, day, row: 'unassigned', company: row.company || '?', title: row.title || row.role_clean || '?', status: 'UNASSIGNED', class: 'retry', reason: 'never-assigned', unlock: null, attempt: 0, domain, url, applier: null, outcome: null, source: 'joblist.json', explicit: true, assist: null, wallHistory: false });
+  }
+}
+if (unassigned.length) {
+  console.error(`COVERAGE HOLE: ${unassigned.length} selected key(s) have no ledger block — added to the retry wave as attempt 1:`);
+  for (const u of unassigned) console.error(`  - ${u.key}  ${u.company} — ${u.title}`);
+  for (const u of unassigned) latest.set(u.key, u);
+}
+
 const recs = [...latest.values()];
 const past = deadline && Date.now() >= deadline.getTime();
 const retry = [], needs = [], wall = [], assist = [];
@@ -147,7 +179,8 @@ if (keySet.size !== retry.length) { console.error('FATAL: slice coverage mismatc
 
 const wave = {
   generated: new Date().toISOString(), days, n: N, deadline: deadline ? deadline.toISOString() : null, deadline_passed: !!past,
-  counts: { submitted, retry: retry.length, needs_felix: needs.length, wall: wall.length, total: recs.length },
+  counts: { submitted, retry: retry.length, needs_felix: needs.length, wall: wall.length, unassigned: unassigned.length, total: recs.length },
+  unassigned: unassigned.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, url: r.url })),
   retry: retry.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, attempt: r.attempt, reason: r.reason, domain: r.domain, url: r.url, edge: r.edge })),
   assist: assist.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, state: r.assist || 'pending', reason: r.reason, domain: r.domain, url: r.url })),
   needs_felix: needs.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, unlock: r.unlock, reason: r.reason, demoted: !!r.demoted })),
@@ -156,7 +189,7 @@ const wave = {
 };
 const outPath = OUT || path.join(DROPS, days[days.length - 1], 'retry-wave.json');
 fs.writeFileSync(outPath, JSON.stringify(wave, null, 1));
-console.error(`retry-queue: ${recs.length} rows → submitted ${submitted}, retry ${retry.length} (${slices.map(s => s.length).join('+')} across ${slices.length} slice(s)), needs-felix ${needs.length}${past ? ' (deadline passed, retries demoted)' : ''}, assist-pending ${assist.length}, wall ${wall.length} → ${outPath}`);
+console.error(`retry-queue: ${recs.length} rows → submitted ${submitted}, retry ${retry.length} (${slices.map(s => s.length).join('+')} across ${slices.length} slice(s)), needs-felix ${needs.length}${past ? ' (deadline passed, retries demoted)' : ''}, assist-pending ${assist.length}, wall ${wall.length}${unassigned.length ? `, UNASSIGNED ${unassigned.length} (in wave)` : ''} → ${outPath}`);
 // Exit codes: 0 = run a wave over `slices`; 4 = nothing left to retry (Stage 3 may proceed);
 // 5 = nothing to retry but captcha-assist rows are still pending — run the assist sweep, NOT Stage 3.
 if (!retry.length) process.exit(assist.length ? 5 : 4);

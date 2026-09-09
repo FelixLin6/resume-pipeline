@@ -1,7 +1,11 @@
 #!/bin/bash
 # Shared pipeline browser lifecycle — the ONE way any orchestrator (Claude or
 # Codex, Mac or droplet) starts/stops the job-application Chrome on CDP 9222.
-#   pipeline-browser.sh start|stop|status
+#   pipeline-browser.sh start [--clean]|stop|status
+#   `start --clean` (macOS): wipe Chrome's session-restore state first. A wedged
+#   Chrome (alive, ~100% CPU, CDP dead) re-wedges on a plain restart because the
+#   profile's exit_type=Crashed makes it restore the dead tabs (Mac 2026-09-08,
+#   3×). start also auto-cleans when it finds exit_type=Crashed in Preferences.
 # macOS: headless Chrome for Testing with the dedicated job-application profile
 #        (decision 2026-09-01: headless because macOS steals app focus on every
 #        tab switch). zylos-browser's display manager does NOT manage it.
@@ -50,11 +54,31 @@ ensure_v4() {
   return 0
 }
 
+# Durable un-wedge (Mac 2026-09-08): drop session-restore files, mark the profile
+# as exited cleanly, drop GPU/shader caches. Only ever called with Chrome down.
+clean_profile() {
+  local d="$PROFILE/Default"
+  [ -d "$d" ] || return 0
+  rm -rf "$d/Sessions" "$d/Last Session" "$d/Last Tabs" "$d/Current Session" "$d/Current Tabs" \
+         "$d/GPUCache" "$PROFILE/GrShaderCache" "$PROFILE/ShaderCache" "$PROFILE/GraphiteDawnCache" 2>/dev/null || true
+  if [ -f "$d/Preferences" ]; then
+    node -e '
+      const fs=require("fs");const p=process.argv[1];const j=JSON.parse(fs.readFileSync(p,"utf8"));
+      j.profile=j.profile||{};j.profile.exit_type="Normal";j.profile.exited_cleanly=true;
+      j.session=j.session||{};j.session.restore_on_startup=5;
+      fs.writeFileSync(p,JSON.stringify(j));' "$d/Preferences" 2>/dev/null || true
+  fi
+  echo "  (profile cleaned: sessions + caches dropped, exit_type=Normal)"
+}
+crashed_profile() { grep -q '"exit_type":"Crashed"' "$PROFILE/Default/Preferences" 2>/dev/null; }
+
 case "${1:-}" in
   start)
     if alive; then echo "already running on CDP $CDP"; exit 0; fi
     if [ "$(uname)" = "Darwin" ]; then
       [ -x "$MAC_CHROME" ] || { echo "Chrome for Testing not found at: $MAC_CHROME" >&2; exit 1; }
+      if [ "${2:-}" = "--clean" ]; then clean_profile
+      elif crashed_profile; then echo "  (exit_type=Crashed found — auto-cleaning to avoid re-wedge)"; clean_profile; fi
       nohup "$MAC_CHROME" --headless=new --remote-debugging-address=127.0.0.1 \
         --remote-debugging-port=$CDP --user-data-dir="$PROFILE" \
         --no-first-run --no-default-browser-check --disable-session-crashed-bubble \
@@ -75,12 +99,14 @@ case "${1:-}" in
     # Reap per-session agent-browser daemons — the appliers each spawn one and
     # they do NOT exit when Chrome dies (2026-09-02: 5 left holding CLOSE_WAIT
     # on the dead port; on the 2GB droplet that is the leak that matters).
-    reap 'agent-browser.*(serve|daemon|--session)'
+    # Also match daemons whose process title is the bare platform binary
+    # (`agent-browser-darwin-arm64`): 2 escaped the pattern on 2026-09-08.
+    reap 'agent-browser.*(serve|daemon|--session)|agent-browser-(darwin|linux)-'
     if alive; then echo "FAILED: CDP $CDP still answering after stop" >&2; exit 1; fi
     echo "stopped (CDP $CDP dead)"
     ;;
   status)
     if alive; then ensure_v4; echo "up on CDP $CDP"; else echo "down"; exit 1; fi
     ;;
-  *) echo "usage: pipeline-browser.sh start|stop|status" >&2; exit 2 ;;
+  *) echo "usage: pipeline-browser.sh start [--clean]|stop|status" >&2; exit 2 ;;
 esac
