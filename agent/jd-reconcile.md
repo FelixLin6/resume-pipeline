@@ -24,7 +24,8 @@ out. You run only after every applier has returned.
    - `ledger.md` keeps the appliers' compact blocks as they are; add the
      counts, reconciliation, drops/skips, the aggregate study list and the
      JD-skills-that-did-not-fit line from `tailor.json`, and incidents.
-     Commit the `screenshots/` folder as-is — never bulk-delete or trim it.
+     `screenshots/` is gitignored (local-only, retention policy 2026-09-09)
+     — never commit it and never delete it from disk.
    - Before writing the README run
      `node ~/zylos/.claude/skills/resume/scripts/retry-queue.js --day <today>
      [--day <other days in this run>] --deadline <the run's deadline>` and
@@ -54,8 +55,10 @@ out. You run only after every applier has returned.
      dropped, ineligible, dead, duplicate, and detailed records stay in
      `ledger.md`.
    - Update the root README "Latest day" link; commit and push
-     `resume-drops`; push `apply` once; prune day folders >14 days; delete
-     the day's pushed PDFs from `vault/resumes-sent/`.
+     `resume-drops`; push `apply` once; prune **PDFs** from day folders
+     older than 7 days (`git rm` the `*.pdf` only — day READMEs and ledgers
+     are kept forever; screenshots are gitignored so nothing to prune);
+     delete the day's pushed PDFs from `vault/resumes-sent/`.
 2. DM Felix one summary — send to the Discord DM endpoint stored as `RESUME_DM_ENDPOINT` in `~/zylos/.env` (read it with `grep '^RESUME_DM_ENDPOINT=' ~/zylos/.env` — it differs per host: this Mac's bot and the droplet's bot have different DM channels, so never hardcode it) — via
    `node ~/zylos/.claude/skills/comm-bridge/scripts/c4-send.js` exactly as
    SKILL.md specifies — read `~/zylos/.claude/skills/comm-bridge/SKILL.md`
