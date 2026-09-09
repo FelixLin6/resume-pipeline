@@ -37,6 +37,9 @@
  * wave file, and pushed into the retry wave as attempt 1 (reason `never-assigned`) so the hole
  * heals itself — this script never exits 4 while a selected key has zero blocks. A missing
  * joblist.json is a warning, not an error (older runs / droplet without the vault dir).
+ * Exception (Mac 2026-09-09 smoke run): keys Stage 1.5 refused as reposts have no per-key
+ * block either — `runs/<day>/tailor.json` rows[key].status === 'skipped-repost' — and must
+ * NOT be re-applied. They are censused as `skipped_repost`, never queued.
  */
 const fs = require('fs');
 const path = require('path');
@@ -121,14 +124,19 @@ for (const day of days) {
 }
 
 // Joblist coverage: selected keys that never got a ledger block (see header).
-const unassigned = [];
+const unassigned = [], skippedRepost = [];
 for (const day of days) {
   const jl = path.join(RUNS, day, 'joblist.json');
   if (!fs.existsSync(jl)) { console.error(`warning: ${jl} missing — coverage check skipped for ${day}`); continue; }
   let rows = [];
   try { rows = JSON.parse(fs.readFileSync(jl, 'utf8')).rows || []; } catch (e) { console.error(`warning: ${jl} unreadable (${e.message}) — coverage check skipped`); continue; }
+  // Stage 1.5 verdicts: a repost-skip is a deliberate non-application, not a hole.
+  let tailor = {};
+  const tj = path.join(RUNS, day, 'tailor.json');
+  if (fs.existsSync(tj)) { try { tailor = JSON.parse(fs.readFileSync(tj, 'utf8')).rows || {}; } catch (e) { console.error(`warning: ${tj} unreadable (${e.message}) — repost-skips not excluded`); } }
   for (const row of rows) {
     if (row.status !== 'selected' || !row.key || latest.has(row.key)) continue;
+    if (tailor[row.key]?.status === 'skipped-repost') { skippedRepost.push({ key: row.key, day, company: row.company || '?', title: row.title || row.role_clean || '?' }); continue; }
     const url = row.apply_link || row.link || null;
     let domain = null;
     if (url) { try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch { /* ignore */ } }
@@ -136,6 +144,7 @@ for (const day of days) {
     unassigned.push({ key: row.key, day, row: 'unassigned', company: row.company || '?', title: row.title || row.role_clean || '?', status: 'UNASSIGNED', class: 'retry', reason: 'never-assigned', unlock: null, attempt: 0, domain, url, applier: null, outcome: null, source: 'joblist.json', explicit: true, assist: null, wallHistory: false });
   }
 }
+if (skippedRepost.length) console.error(`coverage: ${skippedRepost.length} selected key(s) are Stage 1.5 repost-skips (tailor.json) — censused, not queued`);
 if (unassigned.length) {
   console.error(`COVERAGE HOLE: ${unassigned.length} selected key(s) have no ledger block — added to the retry wave as attempt 1:`);
   for (const u of unassigned) console.error(`  - ${u.key}  ${u.company} — ${u.title}`);
@@ -179,8 +188,9 @@ if (keySet.size !== retry.length) { console.error('FATAL: slice coverage mismatc
 
 const wave = {
   generated: new Date().toISOString(), days, n: N, deadline: deadline ? deadline.toISOString() : null, deadline_passed: !!past,
-  counts: { submitted, retry: retry.length, needs_felix: needs.length, wall: wall.length, unassigned: unassigned.length, total: recs.length },
+  counts: { submitted, retry: retry.length, needs_felix: needs.length, wall: wall.length, unassigned: unassigned.length, skipped_repost: skippedRepost.length, total: recs.length },
   unassigned: unassigned.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, url: r.url })),
+  skipped_repost: skippedRepost,
   retry: retry.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, attempt: r.attempt, reason: r.reason, domain: r.domain, url: r.url, edge: r.edge })),
   assist: assist.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, state: r.assist || 'pending', reason: r.reason, domain: r.domain, url: r.url })),
   needs_felix: needs.map(r => ({ key: r.key, day: r.day, company: r.company, title: r.title, unlock: r.unlock, reason: r.reason, demoted: !!r.demoted })),
