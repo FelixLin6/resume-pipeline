@@ -3,7 +3,12 @@
  * role-gate — Stage 1 deterministic filter for the Bespoke Resume Workflow
  * (Felix's policy 2026-09-03: only software / ML / AI engineering and adjacent
  * roles — infra, data engineering, embedded software, security software, dev
- * tools. Not hardware design, not business/ops, not lab research.)
+ * tools. Not hardware design, not business/ops, not lab research.
+ * Tightened 2026-09-09, Felix: "filter out data science bc thats not what i
+ * want to do" — data science / data analytics titles are a HARD drop, checked
+ * before everything else, because their JDs always read software (python/sql/
+ * pandas) and would sail through the skills-mix fallback. Only an explicit
+ * software/developer title family overrides. Data ENGINEERING stays in.)
  *
  * Framing: keep a role if what the intern SHIPS is code, models, data
  * pipelines, or the infrastructure that runs code; drop it if the deliverable
@@ -59,10 +64,19 @@ const HARDWARE_TERMS = new Set(['verilog', 'fpga', 'autocad', 'simulink', 'ardui
 const SOFTWARE_CATS = new Set(['language', 'framework', 'ml', 'data', 'database', 'cloud', 'devops', 'protocol', 'tool']);
 const OFFICE_ONLY = new Set(['excel', 'tableau', 'sap', 'netsuite', 'jira', 'figma']);
 
+// Hard filter (Felix 2026-09-09): data science / analytics out at the title
+// level. Deliberately NOT in DROP — DROP ties against KEEP families and falls
+// to the skills mix, which always reads DS JDs as software. `data engineer(ing)`
+// does not match; "Data Analytics & Engineering" does (analytics leads).
+const DATA_SCIENCE = /\bdata scien(ce|tist)|\bdata analy(st|tics|sis)|\banalytics? (intern|co-?op|student|analyst)|\bdecision scien|\bstatistician\b/i;
+const SWE_TITLE = /\bsoftware\b|\bswe\b|\bsde\b|\bsdet\b|\bdevelop(er|ment)\b|\bprogrammer\b/i;
+
 function fam(list, s) { return list.filter(([, re]) => re.test(s)).map(([n]) => n); }
 
 function roleGate(row) {
   const title = `${row.posting_title || ''} ${row.title || ''}`.replace(/\s+/g, ' ').trim();
+  if (DATA_SCIENCE.test(title) && !SWE_TITLE.test(title))
+    return { role_gate: 'drop', role_gate_reason: 'not software: data science/analytics title (hard filter, Felix 2026-09-09)' };
   const keep = fam(KEEP, title), drop = fam(DROP, title);
   const text = [row.jd_text, row.description, ...(row.requirements || [])].filter(Boolean).join('\n');
   const m = text.trim() ? matchJD({ text, requirements: row.requirements || [] }) : { hits: [], skills: [] };
