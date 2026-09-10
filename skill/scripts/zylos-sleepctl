@@ -1,0 +1,68 @@
+#!/bin/bash
+# zylos-sleepctl — lid-close sleep prevention for pipeline runs (VM-reviewed design 2026-09-10)
+# Installed at /usr/local/bin/zylos-sleepctl as root:wheel 755 (NOT writable by felixlin);
+# sudoers grants felixlin NOPASSWD on that installed path only.
+# Verbs: arm | disarm | status (_watch is the internal auto-disarm watcher).
+# Guards (Felix's battery-arming ruling 2026-09-10 + VM review):
+#   - arm refuses below 25% battery charge
+#   - auto-disarm: 5h on AC, 2h on battery (disablesleep persists across reboots)
+#   - thermal early-disarm: CPU_Speed_Limit < 50 for 3 consecutive minutes (bagged-and-hot)
+#   - orchestrator additionally disarms at session start and every run's Stage-3 tail
+set -euo pipefail
+PMSET=/usr/bin/pmset
+PIDFILE=/var/run/zylos-sleepctl.pid
+
+reap_watcher() {
+  # pidfile-based reap (VM review): never pkill by pattern from root context —
+  # verify the pid's cmdline is actually our watcher before killing.
+  if [ -f "$PIDFILE" ]; then
+    P=$(cat "$PIDFILE" 2>/dev/null || true)
+    if [ -n "${P:-}" ] && ps -p "$P" -o command= 2>/dev/null | grep -q "zylos-sleepctl _watch"; then
+      kill "$P" 2>/dev/null || true
+    fi
+    rm -f "$PIDFILE"
+  fi
+}
+
+case "${1:-}" in
+  arm)
+    reap_watcher   # never two watchers
+    if $PMSET -g batt | grep -q "AC Power"; then
+      WINDOW=18000; SRC="AC"
+    else
+      PCT=$($PMSET -g batt | grep -o "[0-9]*%" | head -1 | tr -d '%')
+      if [ "${PCT:-0}" -lt 25 ]; then
+        echo "REFUSED: battery at ${PCT:-?}% (<25% floor) — charge first" >&2
+        exit 2
+      fi
+      WINDOW=7200; SRC="battery ${PCT}%"
+    fi
+    $PMSET -a disablesleep 1
+    nohup "$0" _watch "$WINDOW" >/dev/null 2>&1 &
+    echo "armed (disablesleep=1, source=$SRC, auto-disarm $((WINDOW/3600))h, thermal watch on)"
+    ;;
+  _watch)
+    echo $$ > "$PIDFILE"
+    trap 'rm -f "$PIDFILE"' EXIT
+    WINDOW="${2:-7200}"; HOT=0; START=$SECONDS
+    while [ $((SECONDS-START)) -lt "$WINDOW" ]; do
+      sleep 60
+      L=$($PMSET -g therm 2>/dev/null | awk -F= '/CPU_Speed_Limit/{gsub(/ /,"",$2);print $2}')
+      if [ -n "${L:-}" ] && [ "$L" -lt 50 ] 2>/dev/null; then HOT=$((HOT+1)); else HOT=0; fi
+      [ "$HOT" -ge 3 ] && break
+    done
+    $PMSET -a disablesleep 0
+    ;;
+  disarm)
+    $PMSET -a disablesleep 0
+    reap_watcher
+    echo "disarmed (disablesleep=0)"
+    ;;
+  status)
+    $PMSET -g | grep -i sleepdisabled || echo "SleepDisabled not set (disarmed)"
+    ;;
+  *)
+    echo "usage: zylos-sleepctl arm|disarm|status" >&2
+    exit 1
+    ;;
+esac
