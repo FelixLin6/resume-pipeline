@@ -1,13 +1,12 @@
 {
-  "_comment": "Machine-readable application profile for the daily job pipeline. Built 2026-09-02 from the vault (wiki/felix-resume.md, wiki/cmu-coursework-record.md, wiki/application-essay-response-bank.md) and the current resume.tex. Every value traces to those sources; unknowns are null and listed in `missing`. NO credentials live here — ATS passwords stay in ~/zylos/.env. Free-text answers live in answer-bank.md, not here.",
+  "_comment": "Machine-readable application profile for the daily job pipeline. Built 2026-09-02 from the vault (wiki/felix-resume.md, wiki/cmu-coursework-record.md, wiki/application-essay-response-bank.md) and the current resume.tex. Every value traces to those sources; unknowns are null and listed in `missing`. NO credentials live here \u2014 ATS passwords stay in ~/zylos/.env. Free-text answers live in answer-bank.md, not here.",
   "_status": "Reviewed 2026-09-02 on Felix's instruction; `missing` entries remain open until Felix supplies them (park rules apply).",
   "_sources": [
     "vault wiki/felix-resume.md (Contact, Job-Application Playbook, Education, Experience, Projects)",
     "vault wiki/cmu-coursework-record.md (transcript facts)",
     "vault wiki/application-essay-response-bank.md (guardrails)",
-    "my_resume resume.tex main branch (résumé wording, dates, coursework line)"
+    "my_resume resume.tex main branch (r\u00e9sum\u00e9 wording, dates, coursework line)"
   ],
-
   "name": {
     "first": "Felix",
     "last": "Lin",
@@ -15,14 +14,12 @@
     "preferred": null,
     "pronouns": null
   },
-
   "email": {
     "primary": "felixl0808@gmail.com",
-    "primary_note": "The ONLY address to use on applications — the pipeline reads this inbox over IMAP for verification codes and confirmations.",
+    "primary_note": "The ONLY address to use on applications \u2014 the pipeline reads this inbox over IMAP for verification codes and confirmations.",
     "email_alt": "felixl@andrew.cmu.edu",
     "email_alt_note": "CMU address. Do NOT use on applications: no IMAP access, so verification codes and confirmations are unreachable (4 UNVERIFIED rows on 2026-09-01 came from this). Use only if a form explicitly demands a .edu address, and then log it as a blocker."
   },
-
   "phone": {
     "e164": "+19499810389",
     "digits": "9499810389",
@@ -30,31 +27,31 @@
     "country_code": "+1",
     "type": "Mobile"
   },
-
   "address": {
     "line1": "64 Copper Mine",
     "line2": null,
     "city": "Irvine",
     "county": "Orange",
-    "county_note": "Some forms want the county or 'Orange County' as city — city of residence is Irvine.",
+    "county_note": "Some forms want the county or 'Orange County' as city \u2014 city of residence is Irvine.",
     "state": "CA",
     "state_full": "California",
     "postal_code": "92602",
     "country": "United States of America",
     "country_short": "US"
   },
-
   "links": {
     "linkedin": "https://www.linkedin.com/in/felix-lin-52048b29a/",
     "github": "https://github.com/FelixLin6",
     "website": "https://felixlin.dev",
     "website_note": "Portfolio site. Use for any 'website / portfolio / other URL' field."
   },
-
   "education": [
     {
       "school": "Carnegie Mellon University",
-      "school_search_fallbacks": ["Carnegie Mellon", "Carnegie Mellon University (CMU)"],
+      "school_search_fallbacks": [
+        "Carnegie Mellon",
+        "Carnegie Mellon University (CMU)"
+      ],
       "school_unit": "School of Computer Science",
       "location": "Pittsburgh, PA",
       "degree": "Bachelor of Science (BS)",
@@ -69,10 +66,10 @@
       "field_of_study_note": "Pick the exact 'Artificial Intelligence' entry when it exists; otherwise the nearest listed fallback in order. Always append a line in the ledger saying which fallback was used.",
       "gpa": 3.36,
       "gpa_scale": 4.0,
-      "gpa_rules": "Free numeric field → 3.36 exactly. Band/step picker that cannot express 3.36 → the nearest band (3.4 on a 0.1 grid; '3.0–3.49' on a range picker). Never round to 3.5+ (the SpaceX 3.6 incident). Résumé and form must agree.",
+      "gpa_rules": "Free numeric field \u2192 3.36 exactly. Band/step picker that cannot express 3.36 \u2192 the nearest band (3.4 on a 0.1 grid; '3.0\u20133.49' on a range picker). Never round to 3.5+ (the SpaceX 3.6 incident). R\u00e9sum\u00e9 and form must agree.",
       "major_gpa": null,
       "start": "2024-08",
-      "start_note": "Entered CMU Fall 2024 (HS graduation May 2024). Year-only fields → 2024.",
+      "start_note": "Entered CMU Fall 2024 (HS graduation May 2024). Year-only fields \u2192 2024.",
       "expected_graduation": "2028-05",
       "expected_graduation_full_date_rule": "2028-05-01 (1st-of-month rule when a full date is required)",
       "class_standing_ay_2026_27": "Junior",
@@ -98,21 +95,23 @@
       "transcript_note": "Canonical unofficial record (cumulative QPA 3.36). Use this exact PDF for any transcript upload; never edit it."
     }
   ],
-
   "high_school": {
     "name": null,
     "graduation": "2024-05",
     "graduation_full_date_rule": "2024-05-01"
   },
-
   "test_scores": {
     "act_superscore": 34,
-    "act_sections": { "math": 35, "science": 34, "english": 35, "reading": 32 },
+    "act_sections": {
+      "math": 35,
+      "science": 34,
+      "english": 35,
+      "reading": 32
+    },
     "act_sitting": "June 2023",
     "sat": null,
     "sat_note": "Never taken. Leave SAT fields blank / 'no SAT score'. Never convert or estimate."
   },
-
   "work_experience": [
     {
       "on_resume": true,
@@ -124,7 +123,7 @@
       "start": "2026-05",
       "end": "2026-08",
       "current": false,
-      "end_note": "Résumé says May 2026 – Aug 2026. Whether it should read 'Present' is an open question in the vault — do not change without Felix.",
+      "end_note": "R\u00e9sum\u00e9 says May 2026 \u2013 Aug 2026. Whether it should read 'Present' is an open question in the vault \u2014 do not change without Felix.",
       "one_line": "Built six production messaging-channel integrations (Discord, Microsoft Teams, WhatsApp Business, LINE, Zalo, Zalo Personal) on a SQLite-backed gateway, the channel onboarding flow in Next.js/TypeScript, a hybrid BM25 + dense-embedding RAG memory-retrieval pipeline, and a Dockerized LongMemEval memory-evaluation harness.",
       "may_contact_employer": null,
       "reason_for_leaving": "Summer internship ended (fixed-term)."
@@ -132,7 +131,7 @@
     {
       "on_resume": true,
       "title": "Mobile Development Intern",
-      "company": "Chapman University — Gait Rehabilitation & Research Lab",
+      "company": "Chapman University \u2014 Gait Rehabilitation & Research Lab",
       "location_for_forms": "Orange, CA",
       "start": "2021-09",
       "end": "2021-12",
@@ -150,18 +149,17 @@
       "end": "2025-12",
       "current": false,
       "one_line": "Self-directed exploratory research into LLM-agent evaluation (LLM-as-judge rubrics, failure-mode analysis; surveyed Pydantic Evals, OpenAI Evals, DeepEval). Learning, not a shipped artifact.",
-      "note": "Removed from the résumé 2026-08-01 (Felix: light work). Enter ONLY when a form requires complete employment history; never describe it as delivered production work."
+      "note": "Removed from the r\u00e9sum\u00e9 2026-08-01 (Felix: light work). Enter ONLY when a form requires complete employment history; never describe it as delivered production work."
     }
   ],
-
   "work_authorization": {
     "citizenship": "United States",
     "authorized_to_work_in_us": true,
     "requires_sponsorship_us_now_or_future": false,
     "requires_sponsorship_outside_us": true,
-    "sponsorship_note": "'No sponsorship' is scoped to US roles only. Any non-US jurisdiction (e.g. Hong Kong) needs an employer-sponsored visa — answer 'Yes' there.",
+    "sponsorship_note": "'No sponsorship' is scoped to US roles only. Any non-US jurisdiction (e.g. Hong Kong) needs an employer-sponsored visa \u2014 answer 'Yes' there.",
     "itar_ear_eligible": true,
-    "itar_note": "US citizen → qualifies as a 'US person' for ITAR/EAR clauses (Stoke Space, SpaceX, Blue Origin class postings).",
+    "itar_note": "US citizen \u2192 qualifies as a 'US person' for ITAR/EAR clauses (Stoke Space, SpaceX, Blue Origin class postings).",
     "security_clearance_held": "None",
     "security_clearance_eligible": true,
     "over_18": true,
@@ -169,7 +167,6 @@
     "previously_employed_by_this_company_default": false,
     "previously_employed_note": "True only for OpenMax/COCO and Chapman University."
   },
-
   "eeo_voluntary_self_id": {
     "gender": "Male",
     "hispanic_or_latino": false,
@@ -183,33 +180,33 @@
     "self_id_form_signature_name": "Felix Lin",
     "self_id_form_date_rule": "today's date (CC-305 form)"
   },
-
   "location_preferences": {
     "open_to_relocation": true,
-    "policy": "Maximal — on any location checklist select everything / the widest option. No US location is a reason to skip a role.",
-    "work_arrangement": ["On-site", "Hybrid", "Remote"],
+    "policy": "Maximal \u2014 on any location checklist select everything / the widest option. No US location is a reason to skip a role.",
+    "work_arrangement": [
+      "On-site",
+      "Hybrid",
+      "Remote"
+    ],
     "current_location": "Irvine, CA"
   },
-
   "availability": {
     "primary_term": "Summer 2027",
-    "summer_2027_window": "May–August 2027",
+    "summer_2027_window": "May\u2013August 2027",
     "available_full_time_in_person": true,
-    "other_terms": "Fall/Winter/Spring co-ops are applied to per triage rules; an off-cycle term would require a leave of absence — note it, don't promise it.",
+    "other_terms": "Fall/Winter/Spring co-ops are applied to per triage rules; an off-cycle term would require a leave of absence \u2014 note it, don't promise it.",
     "graduating_before_sept_2027": false,
     "seeking": "Internship",
     "hours_per_week_during_internship": "Full-time (40)",
     "open_terms": "Winter 2027, Spring 2027, Summer 2027 (Felix, 2026-09-02).",
     "earliest_start_date": "2027-01",
-    "earliest_start_date_note": "January 2027 (confirmed by Felix 2026-09-02 as the earliest he would start, i.e. the start of the Winter 2027 term). Full-date rule: 2027-01-01. A required 'earliest start date' / 'when can you begin' field is answered with this — it is entailed by his open-terms window, not a park. If a specific posting is only for a later term (e.g. Summer 2027), give that term's start instead; never give a date earlier than 2027-01."
+    "earliest_start_date_note": "January 2027 (confirmed by Felix 2026-09-02 as the earliest he would start, i.e. the start of the Winter 2027 term). Full-date rule: 2027-01-01. A required 'earliest start date' / 'when can you begin' field is answered with this \u2014 it is entailed by his open-terms window, not a park. If a specific posting is only for a later term (e.g. Summer 2027), give that term's start instead; never give a date earlier than 2027-01."
   },
-
   "compensation": {
     "minimum_hourly_usd": 20,
     "minimum_annual_usd": 40000,
-    "rules": "Free-text → 'Negotiable — open to <company>'s standard intern rate'. Required numeric → the posting's published range floor (never below $20/hr); no published range → 20/hr or 40000/yr in whatever unit the field asks for (Workday strips non-digits, so 23.50 becomes 2350 — enter integers). Required band picker → lowest band consistent with ≥$20/hr."
+    "rules": "Free-text \u2192 'Negotiable \u2014 open to <company>'s standard intern rate'. Required numeric \u2192 the posting's published range floor (never below $20/hr); no published range \u2192 20/hr or 40000/yr in whatever unit the field asks for (Workday strips non-digits, so 23.50 becomes 2350 \u2014 enter integers). Required band picker \u2192 lowest band consistent with \u2265$20/hr."
   },
-
   "how_did_you_hear": {
     "true_source": "SWElist daily email digest, via the posting's Simplify page",
     "picklist_preference_order": [
@@ -221,40 +218,65 @@
     ],
     "free_text": "SWElist / Simplify job digest"
   },
-
   "languages_spoken": [
-    { "language": "English", "proficiency": "Native / fluent" },
-    { "language": "Chinese (Mandarin)", "proficiency": null, "note": "AP Chinese score 5; presented architecture plans to the OpenMax team in Chinese. Exact proficiency label not on file." }
+    {
+      "language": "English",
+      "proficiency": "Native / fluent"
+    },
+    {
+      "language": "Chinese (Mandarin)",
+      "proficiency": null,
+      "note": "AP Chinese score 5; presented architecture plans to the OpenMax team in Chinese. Exact proficiency label not on file."
+    }
   ],
-
   "programming_languages": {
-    "note": "Levels as entered on Blue Origin 2026-09-01, derived from the résumé and coursework. NO years/months of experience are on file — leave duration fields blank or park; the SpaceX form incident (C++ 6–9 months, Java 10+ months) was unsupported and must not recur.",
-    "advanced": ["Python", "C"],
-    "intermediate": ["TypeScript", "JavaScript", "Java", "SQL", "Shell", "Standard ML"],
-    "listed_on_resume_but_thin": ["C++", "Ruby", "Go", "Rust", "Assembly"],
-    "thin_note": "C++: 15-210 (Fall 2026) is in progress; Go/Rust: on the résumé, no project or completed course in the vault. Do not claim durations or 'advanced' for these."
+    "note": "Levels as entered on Blue Origin 2026-09-01, derived from the r\u00e9sum\u00e9 and coursework. NO years/months of experience are on file \u2014 leave duration fields blank or park; the SpaceX form incident (C++ 6\u20139 months, Java 10+ months) was unsupported and must not recur.",
+    "advanced": [
+      "Python",
+      "C"
+    ],
+    "intermediate": [
+      "TypeScript",
+      "JavaScript",
+      "Java",
+      "SQL",
+      "Shell",
+      "Standard ML"
+    ],
+    "listed_on_resume_but_thin": [
+      "C++",
+      "Ruby",
+      "Go",
+      "Rust",
+      "Assembly"
+    ],
+    "thin_note": "C++: 15-210 (Fall 2026) is in progress; Go/Rust: on the r\u00e9sum\u00e9, no project or completed course in the vault. Do not claim durations or 'advanced' for these."
   },
-
   "awards_publications": [
-    { "type": "award", "text": "USA Computing Olympiad — Silver Division, 2020" },
-    { "type": "publication", "text": "\"SmartMeter: An Automatic Water Metering System using Computer Vision and ARIMA-Based Machine Learning\", MLNLP '22 (ACM)", "doi": "10.1145/3578741.3578785", "coauthor": "Yu Sun" }
+    {
+      "type": "award",
+      "text": "USA Computing Olympiad \u2014 Silver Division, 2020"
+    },
+    {
+      "type": "publication",
+      "text": "\"SmartMeter: An Automatic Water Metering System using Computer Vision and ARIMA-Based Machine Learning\", MLNLP '22 (ACM)",
+      "doi": "10.1145/3578741.3578785",
+      "coauthor": "Yu Sun"
+    }
   ],
-
   "memberships_and_clubs": {
     "technical_clubs": [],
     "professional_organizations": [],
     "note": "None documented (vault: 'CMU Buggy is a checkbox, not a role'). Answer 'none' / 'N/A'; never invent a membership."
   },
-
   "references": {
     "professional": [],
     "openmax_reference_contact": null,
     "note": "None on file. A form that REQUIRES references parks until Felix supplies them."
   },
-
   "standard_yes_no_defaults": {
     "willing_to_relocate": true,
-    "willing_to_travel": null,
+    "willing_to_travel": true,
     "consent_to_background_check": true,
     "consent_to_drug_screen": null,
     "agree_to_terms_and_privacy": true,
@@ -264,31 +286,29 @@
     "has_non_compete": false,
     "related_to_employee": false
   },
-
   "constraints": {
     "never_use_cmu_email": "Applications go out with felixl0808@gmail.com only (see email.email_alt_note).",
-    "never_invent": "If a fact is not in this file, the answer bank, or wiki/felix-resume.md, PARK the posting and record the exact question — do not guess, infer, or embellish.",
+    "never_invent": "If a fact is not in this file, the answer bank, or wiki/felix-resume.md, PARK the posting and record the exact question \u2014 do not guess, infer, or embellish.",
     "no_durations_for_languages": "Never enter years/months of experience for a language or tool; none are on file.",
-    "one_packet_rule": "Form fields and the attached résumé must agree (GPA, dates, counts). Check before submit.",
+    "one_packet_rule": "Form fields and the attached r\u00e9sum\u00e9 must agree (GPA, dates, counts). Check before submit.",
     "forbidden_numbers": [
       "SmartMeter '~10% water-waste reduction' (fabricated, never cite)",
       "mem-eval 75% / 20% as a before/after improvement (they are run data on a fixed benchmark)",
       "nDCG@k 0.95 / injected-F1 0.85 as benchmark results (they are regression gates on an 18-case set)",
       "10-301 hw5 OCR 0.72 val error (2-epoch demo run)",
-      "'seven channels' — it is six; Telegram was 4 misc-fix commits"
+      "'seven channels' \u2014 it is six; Telegram was 4 misc-fix commits"
     ],
     "no_credentials_here": "ATS account passwords are recorded (commented, labeled) in ~/zylos/.env and nowhere else.",
     "wiki_fallback": "wiki/felix-resume.md remains the source for any unusual question this file does not cover."
   },
-
   "missing": [
     "name.preferred / name.pronouns",
-    "education[0].major_gpa (computed ≈3.2–3.3 earlier, not higher than cumulative — so never worth entering)",
+    "education[0].major_gpa (computed \u22483.2\u20133.3 earlier, not higher than cumulative \u2014 so never worth entering)",
     "high_school.name",
     "date_of_birth (never on file; park if required)",
     "languages_spoken[Chinese].proficiency label",
     "work_experience[*].may_contact_employer",
-    "references.professional (×3) and references.openmax_reference_contact",
+    "references.professional (\u00d73) and references.openmax_reference_contact",
     "standard_yes_no_defaults.willing_to_travel / consent_to_drug_screen",
     "security clearance: 'None' is the vault default, never confirmed",
     "a 'number that describes me' / non-technical interests (vault flags this gap explicitly)"

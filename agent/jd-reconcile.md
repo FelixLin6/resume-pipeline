@@ -67,7 +67,9 @@ out. You run only after every applier has returned.
    `~/zylos/.claude/skills/resume/scripts/pipeline-browser.sh stop`
    (per-host stop + verifies CDP 9222 is dead; if it exits non-zero, kill
    whatever holds 9222 and note it in your final output). Chrome must not
-   be left running (2GB droplet).
+   be left running (2GB droplet). On the Mac, also release the lid-close
+   sleep guard: `sudo -n /usr/local/bin/zylos-sleepctl disarm || true`
+   (no-op on Linux / when not armed).
 4. Final output to the orchestrator, compact and machine-readable: counts
    (submitted / parked / failed / dropped, verified / UNVERIFIED /
    unmatched), the repo day link, and anything needing Felix.

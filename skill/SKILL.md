@@ -501,6 +501,20 @@ Loop until exit 4 or the deadline. Exit 5 = no retry rows but captcha-assist row
 - **Sweep:** on Felix's `done`, at wave end, or on exit 5, spawn a DEDICATED job-applier with retry-wave.json's `assist` array as its slice (never message a running applier; never drive tabs from the main session; sweep counts toward the max-2-appliers cap — both slots busy → queue it until one frees). It locates each tab by the form URL from the key line (`tab:` index is a hint only — indices shift), finishes each solved row's SAME attempt and rewrites the block (`submitted`/`retry` + `assist: solved`), or writes `assist: expired` where the puzzle still stands. Felix's `skip` → write `assist: expired` on the listed rows immediately.
 - **Run end, fixed order: sweep → retry-queue (with `--deadline`) → Stage 3.** Reversing it demotes pending rows to walls before the sweep touches them. Remove the C5 poll task in the Stage-3 tail.
 
+**Sleep guard (Mac only, 2026-09-10 — Felix-installed, VM-reviewed):**
+
+- **Run start (orchestrator, right after the resume-drops pull):**
+  `sudo -n /usr/local/bin/zylos-sleepctl arm || true` — non-fatal: the wrapper
+  refuses below 25% battery, and the sudoers rule only exists on the Mac.
+  Armed = lid-close can't kill in-flight appliers. The wrapper self-limits
+  (auto-disarm 5h on AC / 2h on battery, thermal watch) so a crashed run
+  never leaves the Mac sleepless.
+- **Stage-3 tail:** `sudo -n /usr/local/bin/zylos-sleepctl disarm || true`
+  (jd-reconcile does this right after the browser stop).
+- **Session start:** the SessionStart hook runs `scripts/sleep-guard.sh` —
+  disarms a stale arm only when NO run is in flight (agent-browser daemon
+  check), so mid-run session rotations keep the protection.
+
 ### Stage 3 — RECONCILE (agent `jd-reconcile`, one instance)
 
 Runs only after ALL appliers have returned and `retry-queue.js` exits 4 (exit 5 means assist rows are pending — sweep first; Stage 3 never runs over open assist tabs).
