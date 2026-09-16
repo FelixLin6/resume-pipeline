@@ -186,13 +186,16 @@ state):**
   writes only its own `ledger-part<i>.md` and copies PDFs (distinct
   per-company filenames) into the day folder. All commits/pushes happen
   once, in Stage 3.
-- **N = min(2, ceil(selected / 4))** parallel appliers — hard RAM cap on
-  the current 2GB droplet (shared Chrome + 2 heavy ATS tabs + tectonic
-  already leaves only ~250MB headroom; this box has OOM-rebooted before).
-  Raise the cap to 3–4 ONLY after the pending droplet RAM resize to 4GB.
-  Slices are contiguous in email order. If >25 selected, wave one takes
-  the 25 most promising, the remainder runs as a second applier wave
-  before Stage 3; note the split in the DM.
+- **N = min(4, ceil(selected / 4))** parallel appliers (cap 4 — Felix,
+  2026-09-15; was 2). Caveats: (a) on the 2GB droplet the RAM ceiling
+  still binds — keep N ≤ 2 there until its RAM resize (shared Chrome + 2
+  heavy ATS tabs + tectonic leaves ~250MB headroom; that box has
+  OOM-rebooted before); (b) on this Mac, 3 parallel appliers crashed
+  Chrome under memory pressure on 2026-09-02 — watch for mid-wave Chrome
+  deaths, relaunch dead appliers, and report crashes rather than silently
+  downshifting. Slices are contiguous in email order. If >25 selected,
+  wave one takes the 25 most promising, the remainder runs as a second
+  applier wave before Stage 3; note the split in the DM.
 - **Defense in depth (2026-08-29, per-checkout since 2026-09-02):**
   `apply-skills.js` (per checkout), `tailor-batch.js` (one batch at a
   time), `jd-skills add`, and `pipeline-check mark/seed` all self-serialize
@@ -510,7 +513,7 @@ Loop until exit 4 or the deadline. Exit 5 = no retry rows but captcha-assist row
 
 - **Run start:** after the resume-drops pull, read `resume-drops/state/assist.flag` (git-synced; either bot's Discord `assist on`/`assist off` sets it). Armed → every applier prompt says "captcha-assist is ARMED, assist budget <floor(6/N)>" (6 pending max per run, split across appliers); the 13:15 daily run defaults ARMED. Create a C5 scheduler task (10-min interval, this run only — the main session never sleeps to poll) that greps the live `ledger-part*.md` for `assist: pending`.
 - **Ping:** batch ALL currently-pending rows into ONE Discord DM per poll/wave-end — "tab N — Company — puzzle — URL" lines plus reply instructions (`done` / `done <n>` / `skip`) — never one DM per captcha; unsolved rows only ever re-ride the next batch.
-- **Sweep:** on Felix's `done`, at wave end, or on exit 5, spawn a DEDICATED job-applier with retry-wave.json's `assist` array as its slice (never message a running applier; never drive tabs from the main session; sweep counts toward the max-2-appliers cap — both slots busy → queue it until one frees). It locates each tab by the form URL from the key line (`tab:` index is a hint only — indices shift), finishes each solved row's SAME attempt and rewrites the block (`submitted`/`retry` + `assist: solved`), or writes `assist: expired` where the puzzle still stands. Felix's `skip` → write `assist: expired` on the listed rows immediately.
+- **Sweep:** on Felix's `done`, at wave end, or on exit 5, spawn a DEDICATED job-applier with retry-wave.json's `assist` array as its slice (never message a running applier; never drive tabs from the main session; sweep counts toward the applier cap (4 since 2026-09-15) — all slots busy → queue it until one frees). It locates each tab by the form URL from the key line (`tab:` index is a hint only — indices shift), finishes each solved row's SAME attempt and rewrites the block (`submitted`/`retry` + `assist: solved`), or writes `assist: expired` where the puzzle still stands. Felix's `skip` → write `assist: expired` on the listed rows immediately.
 - **Run end, fixed order: sweep → retry-queue (with `--deadline`) → Stage 3.** Reversing it demotes pending rows to walls before the sweep touches them. Remove the C5 poll task in the Stage-3 tail.
 
 **Sleep guard (Mac only, 2026-09-10 — Felix-installed, VM-reviewed):**

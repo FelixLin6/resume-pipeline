@@ -51,10 +51,12 @@ keys>; still-failed keys go to Stage 2 as parked-for-Felix, not skipped.
 
 STAGE 2 — if 0 rows selected, skip to Stage 3. Else: start the shared
 browser once (`~/zylos/.claude/skills/resume/scripts/pipeline-browser.sh
-start`). Split the wave's keys into N = min(2, ceil(M/4)) contiguous slices
-(HARD CAP 2 — 3 parallel appliers crash Chrome under memory pressure,
-2026-09-02; the remainder of a >25 day runs as a second wave — Stage 1.5 for
-those keys, then appliers — after wave one returns). DOMAIN-AWARE SLICING
+start`). Split the wave's keys into N = min(4, ceil(M/4)) contiguous slices
+(HARD CAP 4 — Felix 2026-09-15, raised from 2; note 3 parallel appliers
+crashed Chrome on this Mac under memory pressure on 2026-09-02, so watch
+for mid-wave Chrome deaths and report them, relaunching dead appliers per
+the failure policy; the remainder of a >25 day runs as a second wave —
+Stage 1.5 for those keys, then appliers — after wave one returns). DOMAIN-AWARE SLICING
 (2026-09-03): keys sharing an employer apply-domain must all land in the
 SAME slice — one employer never spans two appliers. COVERAGE ASSERTION
 before launch: the union of the slices must equal the wave's key set exactly
@@ -72,7 +74,7 @@ push/stop the display)." Wait for ALL to return.
 
 STAGE 2.5 — RETRY LOOP (SKILL.md "Stage 2.5 RETRY WAVES"): after EACH wave's
 appliers return (not only at day end), run `node
-~/zylos/.claude/skills/resume/scripts/retry-queue.js --day <date> --n 2`
+~/zylos/.claude/skills/resume/scripts/retry-queue.js --day <date> --n 4`
 (add `--deadline <ISO>` when Felix has set a window). Exit 0 → launch the
 next wave over the file's `slices` (each applier prompt carries its slice
 keys and each key's `attempt` value from retry-wave.json; tailor first only
