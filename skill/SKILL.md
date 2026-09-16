@@ -109,10 +109,22 @@ cutoff.
 
 ### Stage architecture (Felix, 2026-08-29 — modular, parallel apply)
 
-The day is three modules chained by the scheduler's MAIN session (the
-orchestrator — subagents cannot spawn subagents). Each module has its own
-agent definition and a file artifact as its contract, so any module can also
-be invoked standalone:
+> **Orchestration moved into a subagent (Felix, 2026-09-15).** The day is
+> chained by ONE dedicated `pipeline-orchestrator` subagent (Opus 5, medium
+> effort — agent file `~/zylos/.claude/agents/pipeline-orchestrator.md`),
+> launched by the scheduler's main session. Nested subagent spawning works
+> on the current Claude Code runtime, so the orchestrator spawns the stage
+> agents itself; the main session only launches it, stays responsive, and
+> marks the scheduler occurrence done after sanity-checking the
+> orchestrator's compact report. (Historical note: until 2026-09-15 the
+> main session chained the stages itself because subagents could not spawn
+> subagents on older runtimes — on a runtime where nesting still fails,
+> fall back to that mode using the orchestrator agent file's stage prompts
+> verbatim.)
+
+The day is three modules chained by the orchestrator. Each module has its
+own agent definition and a file artifact as its contract, so any module can
+also be invoked standalone:
 
 | Stage | Agent | Instances | Input → Output |
 |---|---|---|---|
@@ -594,11 +606,12 @@ Runs only after ALL appliers have returned and `retry-queue.js` exits 4 (exit 5 
    `~/zylos/.claude/skills/resume/scripts/pipeline-browser.sh` `stop`
    (it verifies CDP 9222 is actually dead and fails loudly if not).
 
-The orchestrator (main session) marks the scheduler task done only after
-Stage 3 returns and its summary sanity-checks (README pushed? DM sent?
-coverage clean?). If any stage's agent dies, relaunch it once; if the staged
-path fails twice, fall back to the single `resume-pipeline` agent running
-the whole day solo, and tell Felix the parallel path failed.
+The orchestrator subagent sanity-checks Stage 3's summary (README pushed?
+DM sent? coverage clean? browser stopped?) and returns a compact report;
+the MAIN session marks the scheduler occurrence done only on a clean
+report. If any stage's agent dies, the orchestrator relaunches it once; if
+the staged path fails twice, it falls back to the single `resume-pipeline`
+agent running the whole day solo, and says so in the report/DM.
 
 ## Runtime portability (Codex)
 
