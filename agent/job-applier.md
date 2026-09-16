@@ -124,7 +124,11 @@ already tailored (2026-09-02) and everything that can be a script is one.
    PDF/time line, one-line outcome, filled summary, verbatim free-text
    answers, notes only if unusual. No narrative, no per-field tables. Never
    push, never touch `README.md` or `ledger.md`, never another applier's tab
-   or part file.
+   or part file. **The `- key` line carries the FULL uuid, never truncated
+   (load-bearing: retry-queue.js and the coverage check match on it —
+   8-char keys on 2026-09-10 caused a false 13-row coverage hole and 7
+   submissions never marked seen). The header's `[<n>]` is the EMAIL row
+   number from the joblist, never your slice position.**
 
    **Outcome taxonomy (mandatory since 2026-09-03 — `retry-queue.js` and
    Stage 3 parse this line, keep the format exact).** The one-line outcome

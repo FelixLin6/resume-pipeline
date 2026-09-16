@@ -450,6 +450,9 @@ Per job:
       ```
       ## [<email row>] <Company> — <Title> — SUBMITTED|PARKED|FAILED|RETRY|WALL|NEEDS-FELIX|ASSIST|SKIPPED-REPOST|DROP-AT-APPLY
       - key <uuid> · ATS <greenhouse|…> <form url> · PDF <file name> · applier<i> · <HH:MM PT>
+        (the key MUST be the FULL uuid, never truncated — retry-queue.js
+        and the coverage check match on it; 8-char keys on 09-10 caused a
+        false 13-row coverage hole and 7 unmarked-seen submissions)
       - outcome: <submitted | retry, retry_reason: <r> | needs-felix, unlock: <a> | wall | assist> — <one line: confirmation text/URL, or the blocker and exactly what is left>
       - assist: <pending | solved | expired>   (captcha-assist rows only; see agent/captcha-assist.md)
       - attempt: <n>
