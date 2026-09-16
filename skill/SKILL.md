@@ -426,6 +426,10 @@ Per job:
       covers account-walled / email-verification flows. Park only CAPTCHA /
       human-verification walls and unreachable or closed postings, with
       link + one screenshot.
+      **Course-schedule document requests → DROP (Felix, 2026-09-16):** a
+      form that requires uploading his course schedule is DROP-AT-APPLY
+      with that reason (listed in the day's drop report so he's aware) —
+      never parked as needs-felix.
       **Workday is attempted, not parked (Felix, 2026-08-31).** Per tenant:
       reuse the account whose credential label is already in `~/zylos/.env`
       (`# WORKDAY_<TENANT>_PASSWORD=...`), else create one with the pipeline
