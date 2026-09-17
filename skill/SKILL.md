@@ -165,7 +165,8 @@ state):**
 - **One Chrome, one agent-browser session per applier, EXPLICIT tab
   pinning.** The orchestrator starts the browser once before Stage 2 via
   `~/zylos/.claude/skills/resume/scripts/pipeline-browser.sh` `start`
-  (per-host: Mac = headless Chrome for Testing on the dedicated profile;
+  (per-host: Mac = HEADED/visible Chrome for Testing on the dedicated
+  profile — Felix 2026-09-17, supersedes the 2026-09-01 headless decision;
   droplet = `zylos-browser display start`). Each applier sets
   `AGENT_BROWSER_SESSION=applier<i>` (its part index) on EVERY
   `agent-browser` call. Live-tested 2026-08-29: per-session current-tab
@@ -181,6 +182,25 @@ state):**
   `zylos-browser` tab/apply commands in an applier (single-session CLI —
   display start/stop only, orchestrator/Stage 3), and nobody runs
   `display stop` mid-run — Stage 3 stops it at the very end.
+- **NEVER touch any Chrome that is not the pipeline browser (Felix
+  2026-09-17).** The user's normal Google Chrome (and any other browser on
+  the machine) is off-limits to every pipeline agent, always. Concretely:
+  (a) connect ONLY by explicit port — `connect 9222` (or the port a stage
+  is told) — `--auto-connect` is FORBIDDEN in all pipeline agents; (b)
+  never let agent-browser LAUNCH a browser: after any failed call, do the
+  false-crash self-heal — `curl -s -m3 127.0.0.1:9222/json/version` to
+  check the real browser, delete the session's engine pin
+  (`~/.agent-browser/<session>.engine`), and re-`connect` — the
+  `[agent-browser] launched browser` message proves nothing (it prints on
+  successful attaches AND on silent private launches); (c) HANDSHAKE after
+  every (re)connect, before filling anything: navigate your own tab to
+  `about:blank#<session>-handshake`, then verify that URL appears in
+  `curl -s 127.0.0.1:9222/json/list` — if it does not, you are typing into
+  a private browser agent-browser launched behind your back: kill that
+  stray browser process, clear the engine pin, reconnect, re-handshake;
+  (d) a stray Chrome you accidentally spawned must be killed before
+  continuing (match its distinct --user-data-dir; NEVER pkill a bare
+  "Chrome" pattern — that could hit the user's real browser).
 - **Appliers never push or write shared files.** No applier touches
   `resume-drops` git state, the day `README.md`, or pushes `apply`; each
   writes only its own `ledger-part<i>.md` and copies PDFs (distinct

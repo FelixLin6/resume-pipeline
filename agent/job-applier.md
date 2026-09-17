@@ -24,7 +24,17 @@ already tailored (2026-09-02) and everything that can be a script is one.
    <key>` call, then you re-read.
 2. Browser: the orchestrator already started the shared Chrome. Set
    `AGENT_BROWSER_SESSION=applier<i>` on EVERY `agent-browser` call.
-   Startup: `connect 9222` → `tab new` → `tab list`, note YOUR tab index.
+   Startup: `connect 9222` → `tab new` → `tab list`, note YOUR tab index →
+   HANDSHAKE: `open about:blank#applier<i>-handshake`, then verify that URL
+   appears in `curl -s 127.0.0.1:9222/json/list`; if it does not, you are in
+   a private browser agent-browser silently launched — kill that stray
+   browser (by its distinct --user-data-dir, never a bare "Chrome" pattern),
+   delete `~/.agent-browser/applier<i>.engine`, `connect 9222` again and
+   re-handshake. Repeat the pin-clear + curl check after ANY failed
+   agent-browser call; never trust its "launched browser" message. The
+   browser is HEADED (visible) — the user may be watching; that changes
+   nothing about your protocol. `--auto-connect` is FORBIDDEN; the user's
+   normal Google Chrome is untouchable, always (Felix 2026-09-17).
    Re-pin with `tab <idx>` at the start of every posting and after any click
    that opens a new tab, and verify `get url` is the posting you're working
    before filling anything — the session pointer can jump to the newest tab

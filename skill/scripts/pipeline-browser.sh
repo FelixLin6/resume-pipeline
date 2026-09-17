@@ -6,9 +6,11 @@
 #   Chrome (alive, ~100% CPU, CDP dead) re-wedges on a plain restart because the
 #   profile's exit_type=Crashed makes it restore the dead tabs (Mac 2026-09-08,
 #   3×). start also auto-cleans when it finds exit_type=Crashed in Preferences.
-# macOS: headless Chrome for Testing with the dedicated job-application profile
-#        (decision 2026-09-01: headless because macOS steals app focus on every
-#        tab switch). zylos-browser's display manager does NOT manage it.
+# macOS: HEADED (visible) Chrome for Testing with the dedicated job-application
+#        profile. Felix 2026-09-17: "do not make it headless" — supersedes the
+#        2026-09-01 headless decision; the focus-steal-on-tab-switch tradeoff is
+#        accepted. NEVER launch this with the user's normal Google Chrome binary
+#        or profile. zylos-browser's display manager does NOT manage it.
 # Linux (droplet): delegates to `zylos-browser display start/stop`.
 set -euo pipefail
 CDP=9222
@@ -79,10 +81,10 @@ case "${1:-}" in
       [ -x "$MAC_CHROME" ] || { echo "Chrome for Testing not found at: $MAC_CHROME" >&2; exit 1; }
       if [ "${2:-}" = "--clean" ]; then clean_profile
       elif crashed_profile; then echo "  (exit_type=Crashed found — auto-cleaning to avoid re-wedge)"; clean_profile; fi
-      nohup "$MAC_CHROME" --headless=new --remote-debugging-address=127.0.0.1 \
+      nohup "$MAC_CHROME" --remote-debugging-address=127.0.0.1 \
         --remote-debugging-port=$CDP --user-data-dir="$PROFILE" \
         --no-first-run --no-default-browser-check --disable-session-crashed-bubble \
-        --disable-features=Translate,BackgroundSync --disable-gpu --disable-extensions \
+        --disable-features=Translate,BackgroundSync --disable-extensions \
         --disable-background-networking --disable-sync --renderer-process-limit=6 \
         --window-size=1400,1000 --user-agent="$UA" >/dev/null 2>&1 &
       disown

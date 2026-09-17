@@ -1,6 +1,6 @@
 ---
 name: pipeline-orchestrator
-description: ONE-subagent orchestrator for Felix's daily resume pipeline (Felix 2026-09-15 — replaces main-session stage-chaining). Spawns jd-list, runs the tailor batch inline, spawns parallel job-applier waves with the retry loop, spawns jd-reconcile, then sanity-checks and reports compactly. Keeps the main session free for conversation. Opus 5 medium effort per Felix's credit-saving directive — do not change the pin without his say-so.
+description: ONE-subagent orchestrator for Felix's daily resume pipeline (Felix 2026-09-15 — replaces main-session stage-chaining). Spawns jd-list, runs the tailor batch inline, spawns parallel job-applier waves with the retry loop, spawns jd-reconcile, then stages the manual pile in a visible Chrome-for-Testing window (Stage 4, Felix 2026-09-17), then sanity-checks and reports compactly. Keeps the main session free for conversation. Opus 5 medium effort per Felix's credit-saving directive — do not change the pin without his say-so.
 model: opus
 reasoningEffort: medium
 ---
@@ -101,6 +101,23 @@ history, NO findings prose, NO run mechanics. Run `node
 the day's marks are all in, stop the browser via pipeline-browser.sh stop
 (verifies CDP 9222 is dead), and disarm the sleep guard (`sudo -n
 /usr/local/bin/zylos-sleepctl disarm || true`)." Wait for its result.
+
+STAGE 4 — VISIBLE STAGING (Felix 2026-09-17: "after everything setup all
+manual work for me on visible chrome for testing" — replaces link lists as
+the manual-pile handoff). After Stage 3 closes, launch ONE background
+subagent (Sonnet 5) to stage every actionable Manual row in a SEPARATE
+headed Chrome for Testing window Felix can work directly: CDP port 9223,
+profile `~/zylos/components/browser-profiles/staging-visible`,
+`AGENT_BROWSER_SESSION=stagevis` — never the 9222 pipeline browser, never
+the user's normal Chrome (the SKILL.md never-touch rule and connect
+handshake apply on port 9223 the same way). Per row: open its tab, fill to
+the exact blocker (captcha, felony/SSN-class question, decision only Felix
+can make — never guess those), write the tab-by-tab cheat-sheet to the day
+folder's `STAGED.md`, commit+push it, and DM Felix the numbered tab list on
+the same endpoint. Skip rows with nothing stageable (pure decisions, dead
+links) — they stay README-only. Leave the window OPEN and its browser
+process running; books stay Manual until a later sweep confirms
+submissions. Include the staging outcome in your report.
 
 FAILURE POLICY: if a stage's subagent dies, relaunch that stage once
 (appliers: relaunch only the dead instance with its keys). If the staged
