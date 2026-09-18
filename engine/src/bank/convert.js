@@ -37,6 +37,23 @@ function dateValue(yyyymm) {
 
 const bool = (v) => (v === true ? 'yes' : v === false ? 'no' : null);
 
+/** Pull the quoted fragments out of the prose blocklist entries — those are
+ *  the strings a form field could actually contain. */
+export function extractLiterals(entries) {
+  const out = [];
+  for (const e of entries) {
+    for (const m of String(e).matchAll(/['‘’"“”]([^'‘’"“”]{3,60})['‘’"“”]/g)) {
+      out.push(m[1].trim());
+    }
+  }
+  return [...new Set(out)];
+}
+
+/** Blocklist entries that produced no enforceable literal. */
+export function unenforceableEntries(entries) {
+  return entries.filter((e) => extractLiterals([e]).length === 0);
+}
+
 // --------------------------------------------------------------- profile ---
 
 export function convertProfile(live) {
@@ -190,7 +207,16 @@ export function convertProfile(live) {
       },
       // Fabricated-number blocklist AND forbidden identities, both checked on
       // write AND on read-back (F16).
+      //
+      // The live entries are PROSE ("SmartMeter '~10% water-waste reduction'
+      // (fabricated, never cite)"), which a scanner cannot match against a
+      // form field. The quoted fragment inside each entry is the actual
+      // forbidden literal, so it is extracted here and the prose is kept
+      // alongside for the human reading the report. An entry with no quoted
+      // fragment yields no literal and is reported as unenforceable rather
+      // than silently dropped.
       forbiddenValues: live.constraints?.forbidden_numbers ?? [],
+      forbiddenLiterals: extractLiterals(live.constraints?.forbidden_numbers ?? []),
       forbiddenIdentities: [live.email?.email_alt].filter(Boolean),
       onePacketRule: true,
       noDurationsForTools: true,
@@ -214,6 +240,11 @@ export function convertProfile(live) {
   }
   if (profile.authorization.clearanceConfidence !== 'confirmed') {
     report.warnings.push('security clearance "none" is a vault default, never confirmed by Felix.');
+  }
+  for (const e of unenforceableEntries(live.constraints?.forbidden_numbers ?? [])) {
+    report.warnings.push(
+      `forbidden-number entry has no quoted literal, so the scanner cannot enforce it: "${e}"`
+    );
   }
   for (const w of profile.experience) {
     if (w.mayContactEmployer === null) {

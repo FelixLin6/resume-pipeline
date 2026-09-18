@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- The OUTER iCIMS page. The application lives one level down, in
+     iframe#icims_content_iframe — verified on 5/5 live tenants. The extra
+     tracking frames below are not decoration: Cotiviti's real page carries 8
+     frames (Hotjar x3, an ad-sync pixel, two hCaptcha frames), and this
+     fixture reproduces that shape so the tests prove the frame chain is
+     resolved BY SELECTOR and never by index. -->
+<meta charset="utf-8">
+<title>Login</title>
+<style>body { font-family: Arial, sans-serif; } iframe.tracking { display: none; }</style>
+
+<h1>CESI careers</h1>
+<nav>QUICK LINKS</nav>
+
+<!-- Tracking frames FIRST, exactly as the real page orders them, so an
+     index-based chain would resolve to the wrong document. -->
+<iframe class="tracking" id="db-sync" src="about:blank"></iframe>
+<iframe class="tracking" id="_hjRemoteVarsFrame" src="about:blank"></iframe>
+<iframe class="tracking" id="_hjRemoteVarsFrame2" src="about:blank"></iframe>
+
+<iframe id="icims_content_iframe"
+        src="icims-guest-apply-inner.html"
+        width="900" height="700"></iframe>
+
+<footer>Software Powered by ICIMS</footer>
+<script>
+  // Propagate ?captcha=fired into the inner frame, as the real page
+  // propagates its query string via in_iframe=1.
+  const q = location.search;
+  if (q) {
+    const f = document.getElementById('icims_content_iframe');
+    f.src = 'icims-guest-apply-inner.html' + q;
+  }
+</script>

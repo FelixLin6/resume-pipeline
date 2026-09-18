@@ -1,0 +1,67 @@
+<!doctype html>
+<!-- Mimics the iCIMS guest-apply gate as observed live on 5 tenants
+     (2026-09-17). Ids, names, and wording are copied from the real DOM:
+       #email          input[type=email] name="css_loginName", label "Email"
+       #accept_gdpr    consent checkbox (id varies: #accept_privacy elsewhere)
+       #enterEmailSubmitButton  input[type=submit] value="Next", DISABLED
+                                until consent is checked
+     plus the hCaptcha widget that is present on EVERY load: a response
+     textarea and a challenge iframe parked inside a visibility:hidden wrapper.
+     The dormant/fired distinction is the whole point of the fixture. -->
+<meta charset="utf-8">
+<title>Login | General Data Protection Regulation (GDPR)</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 16px; }
+  .iCIMS_InfoMsg { font-weight: bold; font-size: 18px; }
+  #captcha-wrap { visibility: hidden; }
+  #captcha-wrap.fired { visibility: visible; }
+</style>
+
+<a href="#main">Skip to Main Content</a>
+<h2 class="iCIMS_InfoMsg">Welcome page</h2>
+<h2 class="iCIMS_InfoMsg">Enter Your Information</h2>
+
+<form id="gdpr-form" onsubmit="return false">
+  <p>
+    You are about to provide personal data. Please see the Privacy Policy here
+    to understand the types of information we collect, how we use it, and how
+    we protect it.
+  </p>
+
+  <label for="email">Email</label>
+  <input type="email" id="email" name="css_loginName">
+
+  <p>
+    <input type="checkbox" id="accept_gdpr" name="accept_gdpr">
+    <label for="accept_gdpr">I accept</label>
+  </p>
+  <p id="consent-msg">
+    You must indicate that you have read the privacy notice and consent to the
+    processing of your personal data before you can continue.
+  </p>
+
+  <input type="submit" id="enterEmailSubmitButton" value="Next" disabled>
+
+  <!-- Always present, challenge or not. -->
+  <textarea name="h-captcha-response" id="h-captcha-response-fixture" style="display:none"></textarea>
+</form>
+
+<div id="captcha-wrap">
+  <iframe title="hCaptcha challenge" src="about:blank" width="300" height="150"></iframe>
+</div>
+
+<p>Application FAQs &middot; Software Powered by ICIMS &middot; www.icims.com</p>
+<p>Protected by hCaptcha</p>
+
+<script>
+  // The real gate enables Next only once consent is checked.
+  const box = document.getElementById('accept_gdpr');
+  const next = document.getElementById('enterEmailSubmitButton');
+  box.addEventListener('change', () => { next.disabled = !box.checked; });
+
+  // Test hook: ?captcha=fired renders the challenge, mimicking the gate
+  // actually firing. Nothing clicks it — the engine never touches a captcha.
+  if (new URLSearchParams(location.search).get('captcha') === 'fired') {
+    document.getElementById('captcha-wrap').classList.add('fired');
+  }
+</script>

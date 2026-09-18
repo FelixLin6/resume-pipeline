@@ -1,0 +1,140 @@
+<!doctype html>
+<!-- Mimics the iCIMS Candidate Profile page. Section order, headings, labels
+     and option wording are verbatim from this week's run screenshots
+     (JHU APL, Cotiviti, DecisionPoint, Cole Engineering).
+     Two behaviours are reproduced because they are the ones that bite:
+       1. dates are THREE controls — Month <select>, Day <select>, Year text —
+          not a single mm/dd/yyyy box and not a picker widget;
+       2. attaching a résumé runs a "parser" that REWRITES already-correct
+          fields, including setting Login to the forbidden CMU address.
+          The page does this to itself, exactly as the real ones do. -->
+<meta charset="utf-8">
+<title>Candidate Profile</title>
+<style>body { font-family: Arial, sans-serif; margin: 16px; } fieldset { margin: 12px 0; }</style>
+
+<h1>Candidate Profile</h1>
+<p>* indicates a required field. Please be sure to fill out all required fields</p>
+
+<fieldset>
+  <legend>Resume</legend>
+  <p>Provide your resume below to pre-fill your profile. Existing data in the form will be replaced:</p>
+  <label for="resume_file">Please upload your resume (max size: 5 MB)*</label>
+  <input type="file" id="resume_file" name="resume_file" required>
+  <span id="resume_status"></span>
+
+  <label for="transcript_file">Please upload your transcripts (unofficial is fine)</label>
+  <input type="file" id="transcript_file" name="transcript_file">
+</fieldset>
+
+<fieldset>
+  <legend>Create your profile</legend>
+  <label for="login">Login*</label>
+  <input type="text" id="login" name="login" required>
+
+  <label for="email">Email*</label>
+  <input type="email" id="email" name="email" required>
+
+  <label for="phone">Phone</label>
+  <input type="text" id="phone" name="phone">
+</fieldset>
+
+<fieldset>
+  <legend>Education</legend>
+  <label for="school">School or University</label>
+  <input type="text" id="school" name="school" role="combobox" aria-autocomplete="list">
+
+  <label for="major">Field of Study</label>
+  <input type="text" id="major" name="major">
+
+  <label for="edu_start_month">Start date (Month / Day / Year)</label>
+  <select id="edu_start_month" name="edu_start_month">
+    <option></option><option>Jan</option><option>Feb</option><option>Mar</option>
+    <option>Apr</option><option>May</option><option>Jun</option><option>Jul</option>
+    <option>Aug</option><option>Sep</option><option>Oct</option><option>Nov</option><option>Dec</option>
+  </select>
+  <select id="edu_start_day" name="edu_start_day">
+    <option></option><option>1</option><option>2</option><option>3</option>
+  </select>
+  <input type="text" id="edu_start_year" name="edu_start_year">
+
+  <label for="graduated">Did you graduate?*</label>
+  <select id="graduated" name="graduated" required>
+    <option></option><option>Yes</option><option>No</option>
+  </select>
+</fieldset>
+
+<fieldset>
+  <legend>Work Experience</legend>
+  <label for="work_title">Title*</label>
+  <input type="text" id="work_title" name="work_title" required>
+
+  <label for="work_employer">Employer name</label>
+  <input type="text" id="work_employer" name="work_employer">
+
+  <label for="work_desc">Description*</label>
+  <textarea id="work_desc" name="work_desc" required></textarea>
+
+  <label for="work_current">Is this your current job?</label>
+  <select id="work_current" name="work_current">
+    <option></option><option>Yes</option><option>No</option>
+  </select>
+</fieldset>
+
+<fieldset>
+  <legend>Work Eligibility</legend>
+  <label for="citizenship">What is your citizenship status?*</label>
+  <select id="citizenship" name="citizenship" required>
+    <option></option>
+    <option>U.S. Citizen</option>
+    <option>Permanent Resident</option>
+    <option>Other</option>
+  </select>
+</fieldset>
+
+<fieldset>
+  <legend>Additional Data</legend>
+  <label for="gender">Gender</label>
+  <select id="gender" name="gender">
+    <option></option><option>Male</option><option>Female</option><option>Decline to self-identify</option>
+  </select>
+
+  <label for="veteran">Veteran (Form Sync)</label>
+  <select id="veteran" name="veteran">
+    <option></option>
+    <option>I am NOT a protected veteran</option>
+    <option>I identify as one or more of the classifications of a protected veteran</option>
+  </select>
+
+  <label for="disability">Disability (Form Sync)</label>
+  <select id="disability" name="disability">
+    <option></option>
+    <option>No, I do not have a disability and have not had one in the past</option>
+    <option>Yes, I have a disability, or have had one in the past</option>
+    <option>I do not wish to answer</option>
+  </select>
+
+  <label for="dob">Date of Birth</label>
+  <input type="text" id="dob" name="dob">
+
+  <label for="years_python">Years of experience with Python*</label>
+  <input type="text" id="years_python" name="years_python" required>
+</fieldset>
+
+<input type="submit" id="submitProfile" value="Submit Profile">
+
+<script>
+  // THE PARSER. This is the recorded failure, reproduced faithfully: attaching
+  // a résumé rewrites fields that were already correct, and the address it
+  // writes into Login is the forbidden CMU one. Observed on Cole Engineering,
+  // SimVentions and Cotiviti in a single week.
+  document.getElementById('resume_file').addEventListener('change', (e) => {
+    if (!e.target.files.length) return;
+    document.getElementById('resume_status').textContent =
+      e.target.files[0].name + ' — Replace Resume';
+    setTimeout(() => {
+      document.getElementById('login').value = 'felixl@andrew.cmu.edu';
+      document.getElementById('email').value = 'felixl@andrew.cmu.edu';
+      document.getElementById('work_employer').value = 'Unknown Company';
+    }, 10);
+  });
+</script>

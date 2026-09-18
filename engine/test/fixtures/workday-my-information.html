@@ -1,0 +1,92 @@
+<!doctype html>
+<!-- Workday shape, top-level (no iframe). Two things it exists to exercise:
+     1. the date is THREE spinbuttons, which is where the current stack burned
+        ~12 per-digit `press` calls, crashed Chrome reproducibly, and once
+        garbled 2026 into 2006;
+     2. its option wording differs from iCIMS's for the SAME canonical values,
+        which is the reason option text is adapter VOCABULARY and the matcher
+        is engine-owned. -->
+<meta charset="utf-8">
+<title>My Information</title>
+<style>body { font-family: Arial, sans-serif; margin: 16px; }</style>
+
+<h1>My Information</h1>
+
+<label for="firstName">First Name</label>
+<input type="text" id="firstName" name="firstName" required>
+
+<label for="lastName">Last Name</label>
+<input type="text" id="lastName" name="lastName" required>
+
+<label for="email">Email Address</label>
+<input type="email" id="email" name="email" required>
+
+<label for="phoneNumber">Phone Number</label>
+<input type="text" id="phoneNumber" name="phoneNumber">
+
+<label for="addressLine1">Address Line 1</label>
+<input type="text" id="addressLine1" name="addressLine1">
+
+<label for="city">City</label>
+<input type="text" id="city" name="city">
+
+<label for="postalCode">Postal Code</label>
+<input type="text" id="postalCode" name="postalCode">
+
+<fieldset>
+  <legend>Start date</legend>
+  <label for="dateMonth">Month</label>
+  <input type="number" id="dateMonth" name="dateMonth" aria-label="Month" min="1" max="12">
+  <label for="dateDay">Day</label>
+  <input type="number" id="dateDay" name="dateDay" aria-label="Day" min="1" max="31">
+  <label for="dateYear">Year</label>
+  <input type="number" id="dateYear" name="dateYear" aria-label="Year" min="1900" max="2100">
+</fieldset>
+
+<label for="sponsorship">Do you now or will you in the future require sponsorship?</label>
+<select id="sponsorship" name="sponsorship" required>
+  <option></option>
+  <option>Yes</option>
+  <option>No, I do not require sponsorship</option>
+</select>
+
+<label for="workAuth">Are you legally authorized to work in the United States?</label>
+<select id="workAuth" name="workAuth" required>
+  <option></option>
+  <option>Yes</option>
+  <option>No</option>
+</select>
+
+<label for="gender">Gender</label>
+<select id="gender" name="gender">
+  <option></option>
+  <option>Female</option>
+  <option>Male</option>
+  <option>I do not wish to answer</option>
+</select>
+
+<label for="hearAbout">How Did You Hear About Us?</label>
+<select id="hearAbout" name="hearAbout">
+  <option></option>
+  <option>Job board / Job site</option>
+  <option>University Career Fair</option>
+  <option>Employee Referral</option>
+</select>
+
+<label for="compensation">Expected Hourly Rate</label>
+<input type="text" id="compensation" name="compensation">
+
+<input type="submit" id="save-continue" value="Save and Continue">
+
+<script>
+  // Recorded Workday behaviour, from the live profile's own compensation
+  // note: the field STRIPS NON-DIGITS, so "23.50" silently becomes "2350".
+  // The value is accepted, no error is raised, and the form now says the
+  // candidate wants $2,350/hour. This is why a read-back is mandatory — a
+  // write that "succeeded" is not a write that landed.
+  const comp = document.getElementById('compensation');
+  comp.addEventListener('input', () => {
+    const stripped = comp.value.replace(/\D/g, '');
+    if (stripped !== comp.value) comp.value = stripped;
+  });
+</script>

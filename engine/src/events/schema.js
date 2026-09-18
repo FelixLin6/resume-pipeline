@@ -158,6 +158,7 @@ export function validateEvent(ev) {
   const d = ev.data ?? {};
   if (typeof d !== 'object') fail('data must be an object');
   assertNoSecrets(d);
+  assertNoPii(d);
 
   switch (ev.type) {
     case 'application_ended':
