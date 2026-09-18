@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8"><title>Sign In</title>
+<!-- Verified live on liveoakbancshares.wd1 and avisbudget.wd1.
+     `beecatcher` is VISIBLE and looks like an ordinary optional text field.
+     Generic label discovery maps "website" to links.website and fills it with
+     Felix's real site — which tells the tenant a bot is driving. -->
+<h1>Sign In</h1>
+<label for="input-4">Email Address*</label>
+<input id="input-4" data-automation-id="email" type="text" required>
+<label for="input-5">Password*</label>
+<input id="input-5" data-automation-id="password" type="password" required>
+<label for="bee">Enter website. This input is for robots only, do not enter if you're human.</label>
+<input id="bee" name="website" data-automation-id="beecatcher" type="text">
+<div data-automation-id="noCaptchaWrapper">
+  <div data-automation-id="click_filter">
+    <button data-automation-id="signInSubmitButton">Sign In</button>
+  </div>
+</div>

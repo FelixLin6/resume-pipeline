@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8"><title>Apply for this job</title>
+<!-- The Greenhouse react-select trap, verified live on covar and nanopathinc:
+     every combobox is shadowed by a LABEL-LESS input marked required. Five of
+     them on the CoVar form. Without quirks.noiseSelectors the engine reports
+     each as `unmapped_required` and parks an application whose visible form is
+     perfectly fillable. -->
+<h1>Apply for this job</h1>
+<label for="first_name">First Name*</label><input id="first_name" type="text" required>
+<label for="last_name">Last Name*</label><input id="last_name" type="text" required>
+<label for="email">Email*</label><input id="email" type="text" required>
+
+<label for="gender">Gender</label><input id="gender" type="text" role="combobox">
+<input class="remix-css-1a0ro4n-requiredInput" type="text" required>
+
+<label for="veteran_status">Veteran Status</label><input id="veteran_status" type="text" role="combobox">
+<input class="remix-css-1a0ro4n-requiredInput" type="text" required>
+
+<label for="disability_status">Disability Status</label><input id="disability_status" type="text" role="combobox">
+<input class="remix-css-1a0ro4n-requiredInput" type="text" required>
+
+<input type="file" id="resume">
+<button>Submit application</button>

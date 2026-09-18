@@ -29,7 +29,14 @@ export function resolveRoot(page, spec) {
 }
 
 /* c8 ignore start — this function is serialized into the page */
-function describeControls(els) {
+function describeControls(els, opts) {
+  const noiseSelectors = opts?.noiseSelectors ?? [];
+  const isNoise = (el) => noiseSelectors.some((s) => {
+    // A selector the browser cannot parse must not take the discovery pass down
+    // with it — it is reported as "not noise" and the control is handled
+    // normally, which is the safe direction to fail in.
+    try { return el.matches(s); } catch { return false; }
+  });
   const labelOf = (el) => {
     const out = [];
     if (el.id) {
@@ -82,6 +89,13 @@ function describeControls(els) {
       tag,
       type: type || null,
       control,
+      noise: isNoise(el),
+      // Workday's only stable selector surface. Its element ids are positional
+      // render ids (`#input-4` is the email box on one page and something else
+      // on the next) and its class names are per-deploy emotion hashes, so a
+      // discovered field without this cannot be matched to a Workday binding at
+      // all. Null everywhere else, and harmless there.
+      automationId: el.getAttribute('data-automation-id') || null,
       id: el.id || null,
       name: el.getAttribute('name') || null,
       label,
@@ -107,14 +121,30 @@ function describeControls(els) {
 /**
  * Discover every form control under a resolved root.
  *
- * @returns {Promise<{fields: object[], root: object}>}
+ * `noiseSelectors` come from the adapter (`quirks.noiseSelectors`) and name
+ * controls that exist but must never be filled or counted. This is not a
+ * convenience — without it the Greenhouse adapter parks 100% of applications:
+ * every react-select control on a Greenhouse form is shadowed by a LABEL-LESS
+ * input marked `required` (`input.remix-css-…-requiredInput`, five of them on
+ * the CoVar form). A required control with no label maps to no FieldKey, and an
+ * unmapped required field parks the application — so a form that is perfectly
+ * fillable on screen would be unfillable by the engine.
+ *
+ * Noise is SUPPRESSED, never hidden: the controls stay in `all` with
+ * `noise: true`, and the discovery event reports how many were suppressed, so
+ * an adapter that over-declares noise is visible in the stream rather than
+ * quietly skipping real fields.
+ *
+ * @returns {Promise<{fields: object[], all: object[], noise: object[]}>}
  */
-export async function discover(root, { includeHidden = false } = {}) {
+export async function discover(root, { includeHidden = false, noiseSelectors = [] } = {}) {
   const locator = root.locator(CONTROL_SELECTOR);
-  const fields = await locator.evaluateAll(describeControls);
+  const fields = await locator.evaluateAll(describeControls, { noiseSelectors });
+  const kept = fields.filter((f) => !f.noise);
   return {
-    fields: includeHidden ? fields : fields.filter((f) => f.visible || f.control === 'file'),
+    fields: includeHidden ? kept : kept.filter((f) => f.visible || f.control === 'file'),
     all: fields,
+    noise: fields.filter((f) => f.noise),
   };
 }
 
@@ -126,6 +156,7 @@ export async function discover(root, { includeHidden = false } = {}) {
 export function locate(root, field) {
   if (field.id) return root.locator(`#${cssEscape(field.id)}`);
   if (field.name) return root.locator(`${field.tag}[name="${cssEscape(field.name)}"]`);
+  if (field.automationId) return root.locator(`[data-automation-id="${cssEscape(field.automationId)}"]`);
   return root.locator(CONTROL_SELECTOR).nth(field.index);
 }
 
@@ -136,11 +167,14 @@ function cssEscape(s) { return String(s).replace(/(["\\#.:[\]()])/g, '\\$1'); }
  * first one, the post-upload barrier one (§5.5), and the post-crash re-verify
  * one (architecture.md §5a) — reports identically.
  */
-export function emitDiscovery(events, { fields, rootFrames }) {
+export function emitDiscovery(events, { fields, rootFrames, noise = [] }) {
   return events.emit('field_discovered', {
     count: fields.length,
     required: fields.filter((f) => f.required).length,
     root_frames: rootFrames ?? [],
+    // An adapter that over-declares noise silently skips real fields. Reporting
+    // the suppression count is what makes that a visible mistake.
+    noise_suppressed: noise.length,
   });
 }
 

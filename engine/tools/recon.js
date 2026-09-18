@@ -88,11 +88,22 @@ function scanDocument() {
     return cls ? `${el.tagName.toLowerCase()}.${cls}` : el.tagName.toLowerCase();
   };
 
+  // Workday's ONLY stable selector surface. Its ids are positional render ids
+  // (`#input-4`, `#input-5`) that shift with the form, and its class names are
+  // emotion hashes (`css-1twblm4`) that change on every deploy — so an adapter
+  // built on either would be broken by the next release. `data-automation-id`
+  // is the contract Workday actually keeps, and recon that does not capture it
+  // cannot produce a usable Workday adapter.
+  const automation = (el) => el.getAttribute('data-automation-id')
+    || el.getAttribute('data-automation-label') || null;
+
   const controls = [...document.querySelectorAll('input, select, textarea')].map((el) => ({
     tag: el.tagName.toLowerCase(),
     type: el.type ?? null,
     id: el.id || null,
     name: el.name || null,
+    automationId: automation(el),
+    ariaLabel: el.getAttribute('aria-label') || null,
     selector: sel(el),
     label: labelFor(el),
     placeholder: el.placeholder || null,
@@ -106,10 +117,11 @@ function scanDocument() {
       : undefined,
   }));
 
-  const buttons = [...document.querySelectorAll('button, input[type=submit], input[type=button], a[role=button]')]
+  const buttons = [...document.querySelectorAll('button, input[type=submit], input[type=button], a[role=button], a[href]')]
     .map((el) => ({
       tag: el.tagName.toLowerCase(),
       id: el.id || null,
+      automationId: automation(el),
       selector: sel(el),
       text: (el.innerText || el.value || '').replace(/\s+/g, ' ').trim().slice(0, 80),
       disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true',
@@ -136,10 +148,23 @@ function scanDocument() {
     selector: sel(el), label: labelFor(el), checked: el.checked, visible: vis(el),
   }));
 
+  // Every automation id on the page, with the text it labels. On Workday this
+  // is effectively the page's API: step rail nodes, section headers and the
+  // advance control all carry one.
+  const automationIds = [...document.querySelectorAll('[data-automation-id]')]
+    .slice(0, 300)
+    .map((el) => ({
+      id: el.getAttribute('data-automation-id'),
+      tag: el.tagName.toLowerCase(),
+      text: (el.innerText || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 60),
+      visible: vis(el),
+    }));
+
   return {
     url: location.href,
     title: document.title,
     headings,
+    automationIds,
     controls,
     buttons,
     iframes,
@@ -160,9 +185,33 @@ export function classifyWall(bundle) {
   return hits;
 }
 
+/** Tenant label for the recon record. Phase 2 hard-coded `icims:`; Phase 3
+ *  recons Workday, Greenhouse and Lever too, and a record labelled with the
+ *  wrong ATS is evidence pointed at the wrong adapter. Mirrors each adapter's
+ *  own `tenantOf`, but lives here because recon runs BEFORE an adapter for that
+ *  ATS necessarily exists. */
+export function tenantLabel(u) {
+  const host = u.hostname.toLowerCase();
+  if (/\.icims\.com$/.test(host)) return `icims:${host}`;
+  if (/myworkdayjobs\.com$/.test(host) || /\.workday\.com$/.test(host)) {
+    // Workday identity is (host, career site), not host alone: one tenant host
+    // serves several sites (e.g. /External vs /Campus) with different flows.
+    const site = u.pathname.split('/').filter(Boolean)[1] ?? '';
+    return `workday:${host}/${site}`;
+  }
+  if (/greenhouse\.io$/.test(host)) return `greenhouse:${u.pathname.split('/').filter(Boolean)[0] ?? host}`;
+  if (/lever\.co$/.test(host)) return `lever:${u.pathname.split('/').filter(Boolean)[0] ?? host}`;
+  return `unknown:${host}`;
+}
+
 export async function reconOne(browser, url, { outDir = OUT } = {}) {
   const u = new URL(url);
-  const slug = `${u.hostname.split('.')[0]}`.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  // The slug must be unique per URL, not per tenant: /login and /apply on one
+  // Workday tenant are different PAGES with different evidence, and a slug that
+  // collides silently overwrites one recon record with another.
+  const tail = Buffer.from(u.pathname + u.search).toString('base64url').slice(-6);
+  const slug = `${u.hostname.split('.')[0]}-${u.pathname.split('/').filter(Boolean).slice(0, 2).join('-')}-${tail}`
+    .replace(/[^a-z0-9]+/gi, '-').replace(/-+$/, '').toLowerCase().slice(0, 70);
   const dir = path.join(outDir, slug);
   fs.mkdirSync(dir, { recursive: true });
 
@@ -172,7 +221,7 @@ export async function reconOne(browser, url, { outDir = OUT } = {}) {
     viewport: { width: 1350, height: 900 },
     locale: 'en-US',
   });
-  const record = { url, tenant: `icims:${u.hostname.toLowerCase()}`, started: new Date().toISOString() };
+  const record = { url, tenant: tenantLabel(u), started: new Date().toISOString() };
 
   try {
     const page = await ctx.newPage();
