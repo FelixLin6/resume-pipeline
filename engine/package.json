@@ -1,0 +1,14 @@
+{
+  "name": "@resume-pipeline/apply-engine",
+  "version": "0.0.0-wip",
+  "private": true,
+  "type": "module",
+  "description": "WIP two-layer apply engine (generic engine + per-ATS adapters). NOT on the daily path.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}
