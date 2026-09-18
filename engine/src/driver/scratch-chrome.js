@@ -20,24 +20,45 @@ import { spawn } from 'node:child_process';
 import { assertScratchPort, resolveEndpoint } from './endpoint.js';
 import { writePidfile, killByPidfile } from './procs.js';
 
-/** Chrome for Testing, as installed for this repo's stack. */
+/**
+ * Chrome for Testing, as installed for this repo's stack.
+ *
+ * Per-platform layouts inside a `chromium-<rev>` cache directory. The Linux
+ * pair is not redundant: Playwright moved the Linux build from `chrome-linux/`
+ * to `chrome-linux64/`, and looking only for the old path made the binary
+ * undiscoverable on the droplet — which, before the Gate 0 skip was removed,
+ * silently turned Gate 0 into a vacuous pass there (droplet shadow report,
+ * item 3). Both layouts are searched so either vintage of the cache resolves.
+ */
+const CHROME_LAYOUTS = Object.freeze([
+  'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+  'chrome-mac/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+  'chrome-linux64/chrome',
+  'chrome-linux/chrome',
+  'chrome-win64/chrome.exe',
+]);
+
+/** Playwright's browser cache roots, newest-installed first within each. */
+function cacheRoots() {
+  return [
+    process.env.PLAYWRIGHT_BROWSERS_PATH || null,
+    path.join(os.homedir(), 'Library/Caches/ms-playwright'),
+    path.join(os.homedir(), '.cache/ms-playwright'),
+  ].filter((p) => p && fs.existsSync(p));
+}
+
 export function findChromeBinary() {
-  const candidates = [
-    // macOS — Playwright cache (the pipeline's own binary, per
-    // skill/scripts/pipeline-browser.sh).
-    ...fs.existsSync(path.join(os.homedir(), 'Library/Caches/ms-playwright'))
-      ? fs.readdirSync(path.join(os.homedir(), 'Library/Caches/ms-playwright'))
-          .filter((d) => d.startsWith('chromium-'))
-          .map((d) => path.join(os.homedir(), 'Library/Caches/ms-playwright', d,
-            'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'))
-      : [],
-    ...fs.existsSync(path.join(os.homedir(), '.cache/ms-playwright'))
-      ? fs.readdirSync(path.join(os.homedir(), '.cache/ms-playwright'))
-          .filter((d) => d.startsWith('chromium-'))
-          .map((d) => path.join(os.homedir(), '.cache/ms-playwright', d, 'chrome-linux/chrome'))
-      : [],
-  ];
-  return candidates.find((p) => { try { fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; } }) ?? null;
+  const candidates = cacheRoots().flatMap((root) =>
+    fs.readdirSync(root)
+      .filter((d) => d.startsWith('chromium-'))
+      // Highest revision first: a box with several installs should use the one
+      // the current Playwright would.
+      .sort((a, b) => (Number(b.split('-')[1]) || 0) - (Number(a.split('-')[1]) || 0))
+      .flatMap((d) => CHROME_LAYOUTS.map((layout) => path.join(root, d, layout))));
+
+  return candidates.find((p) => {
+    try { fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; }
+  }) ?? null;
 }
 
 /** Ask the OS for a free port, then assert it is not a reserved one. */

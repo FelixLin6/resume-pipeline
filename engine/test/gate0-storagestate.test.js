@@ -30,6 +30,27 @@ import { readCmdline } from '../src/driver/procs.js';
 const JOB = '8f2c1a94-6d3e-4b77-9a10-2f5c8e1b4d90';
 const TENANT = 'icims:careers-gate0.icims.com';
 
+/**
+ * Chrome-for-Testing builds on which Gate 0 has actually been RUN and PASSED.
+ *
+ * This list is the release rule from architecture.md §4a made executable: a
+ * build that is not on it has not been measured, and an unmeasured build must
+ * fail here rather than surface later as a mystery re-login loop on a
+ * production day. Adding an entry means "I ran Gate 0 on this build and it
+ * passed", never "this build is probably fine".
+ *
+ *   149.0.7827.55   macOS arm64 (Playwright chromium-1228) — the Mac pipeline
+ *                   binary. Verified 2026-09-17.
+ *   151.0.7922.34   Linux x64 (Playwright chromium-1234), node 22.23.1 —
+ *                   verified on the droplet 2026-09-17: cookies and
+ *                   localStorage survived the SIGKILL across a new port and a
+ *                   new profile; sessionStorage again did not.
+ */
+export const VERIFIED_BUILDS = Object.freeze([
+  'Chrome/149.0.7827.55',
+  'Chrome/151.0.7922.34',
+]);
+
 /** A real http origin: `data:` URLs have storage disabled, and cookie +
  *  localStorage survival is precisely what we are proving. The server also
  *  reflects the cookie it receives, so we can prove the RESTORED context
@@ -69,7 +90,17 @@ async function waitGone(pid, ms = 5000) {
 
 test('GATE 0: storageState survives a browser DEATH on the pipeline Chrome build',
   { timeout: 180000 }, async (t) => {
-    if (!findChromeBinary()) { t.skip('no Chrome for Testing binary in the Playwright cache'); return; }
+    // NOT a skip. Every other browser-backed test in this suite skips when no
+    // Chrome for Testing is installed, because they are testing engine code
+    // that happens to need a browser. Gate 0 is testing the BROWSER ITSELF —
+    // the claim that storageState survives a death on the build the pipeline
+    // runs. A skip here would let a box with no CfT report "Gate 0 passed",
+    // which is the one thing this file must never say without having measured
+    // it (droplet shadow report, item 2).
+    assert.ok(findChromeBinary(),
+      'GATE 0 FAILS: no Chrome for Testing binary in the Playwright cache. ' +
+      'Gate 0 is a claim about the browser, so a missing browser is a failure, ' +
+      'not a skip — install Chrome for Testing (npx playwright install chromium) and re-run.');
 
     const site = await startOriginServer();
     const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'engine-gate0-'));
@@ -90,9 +121,17 @@ test('GATE 0: storageState survives a browser DEATH on the pipeline Chrome build
 
       const a = await attach({ port: portA, events });
       buildString = a.endpoint.version.Browser;
-      // Pin the claim to the build. If the pipeline moves to another Chrome,
-      // this assertion is the thing that tells us Gate 0 must be re-run.
-      assert.match(buildString, /^Chrome\/1\d\d\./, `unexpected build: ${buildString}`);
+      // Pin the claim to the EXACT build. The previous form of this assertion
+      // was /^Chrome\/1\d\d\./, which any build from 100 to 199 satisfies — so
+      // the pin that was supposed to force a re-run after a Chrome upgrade
+      // would have sailed through every upgrade this decade (droplet shadow
+      // report, item 1). An allowlist is the only form of this check that does
+      // what §4a claims it does.
+      assert.ok(VERIFIED_BUILDS.includes(buildString),
+        `GATE 0: unverified Chrome build "${buildString}". Gate 0's verdict is a claim ` +
+        `about a specific build, and this one is not on the verified list ` +
+        `(${VERIFIED_BUILDS.join(', ')}). Re-run Gate 0 on this build, and if it passes, ` +
+        `add "${buildString}" to VERIFIED_BUILDS here and to architecture.md §4a.`);
 
       const ctxA = new ApplierContexts({ browser: a.browser, events, stateDir });
       const c1 = await ctxA.create(1, { tenant: TENANT });
