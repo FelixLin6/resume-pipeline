@@ -205,6 +205,45 @@ interface AtsAdapter {
     maxSubmitAttempts: number;
     /** Selector fragments whose presence means a human-verification wall. */
     wallMarkers: WallMarker[];
+
+    // ---- PHASE 3 ADDITIONS, each forced by a live-recon finding ----------
+
+    /** The submit control and the captcha wrappers that can sit over it.
+     *  The ENGINE hit-tests before any submit click (F21); the adapter only
+     *  says which selectors to test. See §5.7. */
+    submitControl?: {
+      selector: string;
+      captchaWrappers?: string[];
+      captchaResponse?: string | null;
+      preClick?: { pressEscape?: boolean; scrollIntoView?: boolean };
+    };
+
+    /** Controls that exist but must never be filled or counted.
+     *
+     *  Not a convenience — without it the Greenhouse adapter parks 100% of
+     *  applications. Every react-select control on a Greenhouse form is
+     *  shadowed by a LABEL-LESS input marked `required`
+     *  (`input.remix-css-…-requiredInput`, five of them on the CoVar form).
+     *  A required control with no label maps to no FieldKey, and an unmapped
+     *  required field parks — so a form that is perfectly fillable on screen
+     *  becomes unfillable by the engine.
+     *
+     *  It is also how a BOT HONEYPOT is refused: Workday renders a visible,
+     *  innocuous-looking `input[name="website"]
+     *  [data-automation-id="beecatcher"]` labelled "Enter website. This input
+     *  is for robots only, do not enter if you're human." Generic label
+     *  discovery maps it to `links.website` and fills it.
+     *
+     *  Noise is SUPPRESSED, never hidden: suppressed controls stay in
+     *  `discovered.all` with `noise: true`, and `field_discovered` reports
+     *  `noise_suppressed`, so an adapter that over-declares noise is visible
+     *  in the stream rather than quietly skipping real fields. */
+    noiseSelectors?: string[];
+
+    /** Controls the engine must never click. Chiefly résumé-parse autofill
+     *  (F15: eight tenants whose parser overwrote already-correct contact
+     *  fields, including setting the email to the forbidden CMU address). */
+    forbiddenControls?: string[];
   };
 
   /** Upload one artifact. Named target, never an ordinal (F6). */
@@ -291,6 +330,16 @@ interface LoginSpec {
   failure?: { selector?: string; text?: RegExp };
   /** If sign-in can demand an emailed code. */
   verification?: { input: string; submit: string; matching: RegExp };
+
+  /** PHASE 3 ADDITION. A control that must be pressed before the username
+   *  field EXISTS. Distinct from `continueAfterUsername`, which is pressed
+   *  after the username is typed.
+   *
+   *  Forced by live recon on Jabil's Workday tenant, which renders Apple /
+   *  Google / LinkedIn / "Sign in with email" buttons and NO email field at
+   *  all until the last is pressed. It stays declarative because it is a
+   *  credential-free click, so no credential enters adapter code. */
+  revealForm?: string;
 }
 ```
 
@@ -352,7 +401,18 @@ type WallClass =
   | 'hcaptcha' | 'recaptcha-interactive' | 'recaptcha-v3-score'
   | 'datadome' | 'cloudflare-challenge' | 'spam-flag'
   | 'http-403' | 'http-429' | 'tenant-5xx' | 'account-required'
+  // Phase 3. `akamai` refuses rather than challenging (a reference number and
+  // no widget), so it must not sit in a class that retries. `tenant-broken`
+  // (the SmartRecruiters NG0908 signature) is the tenant being DOWN, not the
+  // tenant gating us. See architecture.md §8b.
+  | 'akamai' | 'tenant-broken'
   | 'unknown-challenge';
+
+/** What the engine decided to do about a detected wall. Closed, and refused at
+ *  emit time if it is not one of these. */
+type WallAction =
+  | 'retry-fresh-context' | 'park' | 'skip-retry-third-strike'
+  | 'reuse-solved-session';   // Phase 3, architecture.md §8b
 
 interface WallMarker { wallClass: WallClass; selector?: string; text?: RegExp; status?: number; }
 
@@ -975,6 +1035,63 @@ The staleness clause matters as much as the verdict: a diff that passed
 *before* the last fill is not evidence about the form being submitted. The
 engine has no flag, no override parameter, and no caller-supplied bypass —
 there is deliberately no way to spell "submit anyway" in this API.
+
+**Phase 3 hardening, in `src/engine/gate2.js`.** The rule is now stated once and
+used twice — as the runtime refusal above, and as an **audit over a finished
+stream** that the metric report runs before it may describe a day as clean. The
+runtime check can only protect code that calls it; the audit protects the
+RECORD, and the record is what Gate 2 is judged on. The audit also catches the
+cutover plan's other abort condition, a **duplicate submission**, and evaluates
+each submit *as of its own seq*, so a later passing diff cannot retroactively
+bless an earlier bad submit.
+
+Two clauses were added to the rule itself, both from the same observation —
+that a *barrier* diff and a *review* diff are different claims:
+
+1. A `review_diff` carrying `scope:"post_upload_reverify"` is **not** the
+   review diff. A passing barrier diff is not evidence that the review page
+   matched intent, and treating it as one would let an application submit with
+   no review-page check at all.
+2. A **failing barrier diff after a passing review diff blocks the submit**. A
+   barrier emits no mutating event, so the staleness clause alone would not
+   catch it — a résumé parser that clobbered a field during the post-upload
+   re-verify would slip through behind a review diff that was still technically
+   fresh.
+
+### 5.7 The click lands where you think it does (F21)
+
+A passing diff says the FORM is right. It says nothing about whether the click
+will reach the button. On 2026-09-17 a Lever hCaptcha rendered at invisible
+size and a click aimed at the widget passed **through** to SUBMIT APPLICATION,
+filing an application nobody had reviewed. The engine's exposure is the mirror
+image — a click aimed at the button landing on the captcha — and both are the
+same defect: nobody asked what was actually on top.
+
+So `submit()` hit-tests before it clicks (`src/engine/overlay.js`):
+`document.elementFromPoint` at the centre of the adapter's declared submit
+control, with the target counted as hit if it is the topmost element, contains
+it, or is contained by it (Workday wraps its buttons in a `click_filter` div,
+which is normal).
+
+`isVisible()` is **not** a substitute and the test suite asserts why: on the
+reproduction fixture the trapped button reports `isVisible() === true`, because
+it is visible — it is simply not what a click would reach. Live recon on the
+same Lever tenant found the hCaptcha enclave iframes at **1350×900**, the whole
+viewport.
+
+Outcomes:
+
+- click reaches the control → an `adapter_note` recording that the guard ran,
+  so "we checked" is distinguishable from "nobody checked";
+- a **captcha** would eat the click → `wall_detected{where:"submit"}` carrying
+  the overlay's geometry and whether the challenge token is still empty, then a
+  refusal;
+- a **non-captcha** overlay (a cookie banner, a modal) → a refusal with **no
+  wall event**. An obstruction is not a bot defence, and recording one would
+  poison that tenant's wall memory.
+
+An adapter that declares no `submitControl` is recorded as unguarded in the
+stream, so the gap is visible rather than silent.
 
 ---
 

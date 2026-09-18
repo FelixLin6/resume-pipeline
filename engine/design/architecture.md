@@ -120,6 +120,23 @@ nothing carries over except the JSON file.
 `chromium-1228`, `chrome-mac-arm64` — the binary
 `skill/scripts/pipeline-browser.sh` launches).
 
+**Second platform, PASS** (droplet Gate 1 shadow report, 2026-09-17): Linux
+x64, node 22.23.1, `Chrome/151.0.7922.34` (Playwright cache `chromium-1234`).
+Cookies and `localStorage` survived the `SIGKILL` across a new port and a new
+profile; `sessionStorage` again did not. Two platforms and two Chrome majors
+now agree, which is the strongest form this claim has been in.
+
+**How the build pin is enforced (corrected).** The pin was originally written
+`assert.match(build, /^Chrome\/1\d\d\./)`, which every Chrome from 100 to 199
+satisfies — so the assertion that was supposed to force a re-run after an
+upgrade would have sailed through every upgrade this decade. It is now an
+explicit allowlist, `VERIFIED_BUILDS` in `test/gate0-storagestate.test.js`,
+containing only builds Gate 0 has actually been RUN on. Adding an entry means
+"I ran Gate 0 on this build and it passed", never "this build is probably
+fine". Relatedly, a missing Chrome binary is now a Gate 0 **failure** rather
+than a skip: Gate 0 is a claim about the browser, so a box with no browser must
+not report that it passed.
+
 | Claim | Result |
 |---|---|
 | Persistent cookies survive the death | **yes** |
@@ -339,6 +356,66 @@ Known-hard classes short-circuit to park with no retry: `datadome` (the SPA
 never renders, so there is no challenge to solve — B6), and a reCAPTCHA that
 renders 0×0 (not interactable even by a human — Aramco, B4).
 
+### 8b. Phase 3: the classifier, two new classes, and the reuse window
+
+**The classifier** (`src/engine/preflight.js`) resolves a landed page to a
+member of the closed `WALL_CLASSES` set or to `null`, checking adapter markers
+first (tenant knowledge beats generic knowledge), then engine-owned generic
+markers, then headers and status. Generic markers live in the engine rather
+than in adapters because an edge block is a property of the CDN in front of a
+tenant, not of the ATS behind it: the same DataDome interstitial appears in
+front of Workday, Greenhouse and a bespoke careers page alike.
+
+**Two classes were added**, both so the retry policy can reason about them:
+
+- **`akamai`** — Akamai Bot Manager does not challenge, it *refuses*, with a
+  reference number and no widget at all. There is nothing for an assist slot to
+  solve, so filing it under `unknown-challenge` (which retries) spends slots on
+  a door that does not open.
+- **`tenant-broken`** — the SmartRecruiters Angular `NG0908` signature. The
+  tenant's own application is throwing; it is not blocking us. Conflating the
+  two would teach the wall memory that a tenant gates us when it is merely
+  down, and the third-strike skip would then punish a tenant for a bad deploy.
+
+**The rule that governs every marker: presence is not a wall.** Verified on 5
+live iCIMS tenants and on Lever's Kitware page — the captcha widget is in the
+DOM on *every* load, challenge or not. A presence-keyed marker parks 100% of
+applications on those ATSes, including the three-of-four that sail straight
+through. Every widget marker is visibility-gated, and a 0×0 challenge is
+classified as a score check rather than as something a human could solve.
+
+**`preflight_result.ip_class`** (C5) comes from one probe per RUN, cached by run
+date. Offline is telemetry, not a run failure: a pre-flight that failed because
+a metadata service was down would be a self-inflicted outage. The IP itself
+never enters the stream — it is identity-adjacent, and a dotted quad like
+`212.345.6789` would trip the emitter's own Q5 phone-shape guard.
+
+**The solved-session reuse window.** Evidence (droplet Gate 1 shadow report):
+on 2026-09-17, after Felix solved the JHU APL challenge once by relay, the same
+session's staging pass ~100 minutes later went straight through with no
+re-fire. A solved challenge therefore buys a *window*, not a moment, and the
+right response to a wall on a tenant solved this morning is to reuse the
+session rather than park a second time.
+
+- `recordSolved(tenant, wallClass)` stamps `solved_at`. It is distinct from
+  `recordCleared`, which means "the wall did not re-fire on a retry"; this
+  means "the wall fired and was answered".
+- `decide()` returns **`reuse-solved-session`** first, ahead of both the
+  no-retry classes and the third strike — it is the only branch backed by a
+  session we already own, and it spends no assist slot. It is gated on a saved
+  `storageState` actually existing: the window is evidence about a session, and
+  with no session to reuse it means nothing.
+- The window is keyed on **(tenant, wall_class)**, deliberately wider than C4's
+  (tenant, wall_class, where). Solving iCIMS's guest-apply puzzle is what earns
+  the trusted session, and that session is equally good at the Submit-Profile
+  gate.
+- `SOLVED_TTL_HOURS = 12` is a **policy** number extrapolated from a ~1.6 hour
+  observation. `solved_reused` / `solved_reuse_failed` are counted so the next
+  value comes from data rather than from this paragraph.
+
+`wall_detected.action` is now a closed vocabulary, refused at emit time: a
+policy the reader of a stream cannot name is a policy nobody can audit.
+
 ## 9. Migration / cutover
 
 Explicitly **not** a flag-flip. Four gates, in order:
@@ -352,6 +429,28 @@ from a previous day, in a throwaway context, and stops **before** submit. It
 emits a full event stream and a review diff. Success = the diff matches what
 the current stack actually filled that day, per-field, for ≥ 3 postings per
 ATS. Nothing is submitted; no risk to Felix's standing with any tenant.
+
+*Runner:* `tools/shadow.js` (Phase 3). Four hard stops, each a refusal in code
+rather than a flag a caller may unset: it never submits (`submit()` is not
+imported by that file and no code path reaches it); it never enters an email on
+a posting outside the explicit allowlist, running such postings in probe mode
+with zero writes; it never creates or uses an account (the context it builds
+carries no `secrets` at all, so an account gate is the end of the road by
+construction); and it never touches the pipeline browser. Its stream is
+production-shaped, so `tools/metrics-report.js` reads a shadow run and a real
+run with the same code — which matters, because the numbers that fill in the
+"TBD from shadow" budget rows must be produced by the same accounting that will
+later police them.
+
+*Known Gate 1 constraint:* **per-field review-diff ground truth for iCIMS must
+come from Mac-side runs.** The droplet has three submitted iCIMS rows ever, and
+the ledgers' `filled:` lines are prose rather than per-field values — so a
+shadow run there can prove the engine READS an iCIMS form correctly, but cannot
+prove it would have FILLED it the way the current stack did. The droplet's
+value for Gate 1 is the pre-gate steps and the wall path, where it is in fact
+the better instrument: its egress draws an hCaptcha challenge on essentially
+every tenant, which makes it a guaranteed-positive fixture for the wall
+pre-flight and a validation target for `ip_class`.
 
 **Gate 2 — side-by-side day.** One real day, **one ATS** (iCIMS first — worst
 current cost, clearest win), **and the engine handles at most 3 postings**.
