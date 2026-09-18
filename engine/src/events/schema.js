@@ -46,7 +46,30 @@ export const WALL_CLASSES = Object.freeze([
   'hcaptcha', 'recaptcha-interactive', 'recaptcha-v3-score',
   'datadome', 'cloudflare-challenge', 'spam-flag',
   'http-403', 'http-429', 'tenant-5xx', 'account-required',
+  // Phase 3 additions. Both are edge/tenant conditions the pre-flight
+  // classifier can now name, and a class it cannot name is a class the retry
+  // policy cannot reason about — which is the whole argument for a closed set.
+  //
+  //   akamai        Akamai Bot Manager. Distinct from datadome/cloudflare
+  //                 because its refusal is a plain "Access Denied / Reference
+  //                 #..." page with no challenge widget at all: there is
+  //                 nothing for an assist slot to solve, so it must not be
+  //                 filed under `unknown-challenge`, which retries.
+  //   tenant-broken The tenant's own application is throwing, not blocking us
+  //                 (the SmartRecruiters Angular NG0908 signature). It is NOT
+  //                 a bot wall, and conflating the two would teach the wall
+  //                 memory that a tenant "gates" us when it is simply down.
+  'akamai', 'tenant-broken',
   'unknown-challenge',
+]);
+
+/** What the engine decided to DO about a detected wall. Closed, because a
+ *  policy the reader of a stream cannot name is a policy nobody can audit.
+ *  `reuse-solved-session` was added in Phase 3: a challenge a human solved
+ *  buys a session-length window (walls.js SOLVED_TTL_HOURS), and reusing it
+ *  spends no assist slot. */
+export const WALL_ACTIONS = Object.freeze([
+  'retry-fresh-context', 'park', 'skip-retry-third-strike', 'reuse-solved-session',
 ]);
 
 export const DRIVER_EVENT_KINDS = Object.freeze([
@@ -169,6 +192,11 @@ export function validateEvent(ev) {
       break;
     case 'wall_detected':
       if (!WALL_CLASSES.includes(d.wall_class)) fail(`unknown wall class: ${d.wall_class}`);
+      // `action` is optional (a detection may be recorded before a policy runs),
+      // but an action outside the closed set is refused.
+      if (d.action !== undefined && d.action !== null && !WALL_ACTIONS.includes(d.action)) {
+        fail(`unknown wall action: ${d.action}`);
+      }
       break;
     case 'driver_event':
       if (!DRIVER_EVENT_KINDS.includes(d.kind)) fail(`unknown driver event kind: ${d.kind}`);

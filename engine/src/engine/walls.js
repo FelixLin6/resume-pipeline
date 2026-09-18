@@ -22,6 +22,31 @@ import path from 'node:path';
 export const THIRD_STRIKE = 3;
 export const DECAY_DAYS = 14;
 
+/**
+ * How long a SOLVED challenge is treated as still solved for a tenant.
+ *
+ * Evidence (droplet shadow report, item 5; JHU APL, 2026-09-17): after Felix
+ * solved the challenge once by relay, the same session's later staging pass
+ * went straight through with no re-fire. The measured gap is ~1.6 hours
+ * (16:27 → 18:05). A solved hCaptcha therefore buys a window, not a moment,
+ * and the right response to a wall on a tenant we solved this morning is to
+ * REUSE the session rather than to park a second time.
+ *
+ * 12 is a bounded extrapolation from a ~1.6h observation, chosen so the window
+ * cannot silently span days. It is deliberately a policy number, not a measured
+ * one, which is why `solved_reused` and `solved_reuse_failed` are counted: the
+ * next value for this constant should come from those counters, not from this
+ * comment. Reuse is additionally gated on a saved storageState still existing
+ * for the tenant — the window is evidence about a SESSION, and with no session
+ * to reuse the window means nothing.
+ */
+export const SOLVED_TTL_HOURS = 12;
+
+/** The closed set of retry actions lives with the other stream vocabularies,
+ *  in events/schema.js, and is re-exported here because this file is where the
+ *  policy that produces one lives. */
+export { WALL_ACTIONS } from '../events/schema.js';
+
 /** Classes where a retry cannot possibly help, so we never spend one. */
 export const NO_RETRY_CLASSES = Object.freeze([
   'datadome',            // the SPA never renders; there is no challenge to solve
@@ -66,6 +91,65 @@ export class WallMemory {
     return this.data[k] ?? null;
   }
 
+  /**
+   * A challenge that a HUMAN solved. Distinct from `recordCleared`, which
+   * means "the same wall did not re-fire on a retry"; this means "the wall
+   * fired and was answered", which is the thing that opens the reuse window.
+   *
+   * The window is per (tenant, wall_class) rather than per (tenant, wall_class,
+   * where): solving iCIMS's guest-apply puzzle is what got us a trusted
+   * session, and that session is equally good at the Submit-Profile gate. This
+   * is the one place the C4 key is deliberately widened, because the evidence
+   * is about the session, not about the location of the widget.
+   */
+  recordSolved(tenant, wallClass, where = null) {
+    const k = wallKey(tenant, wallClass, where);
+    const now = this.now().toISOString();
+    const cur = this.data[k] ?? this.record(tenant, wallClass, where);
+    cur.solved_at = now;
+    cur.solved_count = (cur.solved_count ?? 0) + 1;
+    this.data[k] = cur;
+
+    // Mirror onto every entry for this (tenant, wall_class), whatever its
+    // `where` — see the note above.
+    for (const [key, e] of Object.entries(this.data)) {
+      if (key !== k && e.tenant === tenant && e.wall_class === wallClass) {
+        e.solved_at = now;
+        e.solved_count = (e.solved_count ?? 0) + 1;
+      }
+    }
+    return cur;
+  }
+
+  /** Hours since the most recent solve for this (tenant, wall_class), or null. */
+  hoursSinceSolved(tenant, wallClass) {
+    let newest = null;
+    for (const e of Object.values(this.data)) {
+      if (e.tenant !== tenant || e.wall_class !== wallClass || !e.solved_at) continue;
+      const t = Date.parse(e.solved_at);
+      if (!Number.isNaN(t) && (newest === null || t > newest)) newest = t;
+    }
+    if (newest === null) return null;
+    return (this.now().getTime() - newest) / 3600000;
+  }
+
+  /** Is a solved session still inside its reuse window? */
+  solvedSessionUsable(tenant, wallClass, { hasStorageState = true } = {}) {
+    if (!hasStorageState) return false;   // a window with no session is nothing
+    const h = this.hoursSinceSolved(tenant, wallClass);
+    return h !== null && h >= 0 && h <= SOLVED_TTL_HOURS;
+  }
+
+  /** Reuse outcomes, so SOLVED_TTL_HOURS can be re-tuned from data. */
+  recordReuse(tenant, wallClass, where, worked) {
+    const k = wallKey(tenant, wallClass, where);
+    const e = this.data[k];
+    if (!e) return null;
+    const field = worked ? 'solved_reused' : 'solved_reuse_failed';
+    e[field] = (e[field] ?? 0) + 1;
+    return e;
+  }
+
   /** Age in whole CALENDAR days.
    *
    *  `last_seen` is stored as a date, not a timestamp, so measuring the decay
@@ -87,9 +171,22 @@ export class WallMemory {
 
   /**
    * The policy.
-   * @returns {'retry-fresh-context'|'park'|'skip-retry-third-strike'}
+   *
+   * Order is load-bearing. The solved-session check comes FIRST, ahead of both
+   * the no-retry classes and the third strike, because it is the only branch
+   * backed by a session we already own: a tenant on its fourth hCaptcha whose
+   * challenge Felix solved an hour ago should reuse that session, not park on a
+   * strike count that was accumulated before we had one. The third strike
+   * exists to stop us spending assist slots we do not have; reuse spends none.
+   *
+   * @param {object} [o]
+   * @param {boolean} [o.hasStorageState] does a saved session exist for this tenant
+   * @returns {'retry-fresh-context'|'park'|'skip-retry-third-strike'|'reuse-solved-session'}
    */
-  decide(tenant, wallClass, where) {
+  decide(tenant, wallClass, where, { hasStorageState = false } = {}) {
+    if (this.solvedSessionUsable(tenant, wallClass, { hasStorageState })) {
+      return 'reuse-solved-session';
+    }
     if (NO_RETRY_CLASSES.includes(wallClass)) return 'park';
     const n = this.effectiveOccurrences(tenant, wallClass, where);
     if (n >= THIRD_STRIKE) return 'skip-retry-third-strike';
