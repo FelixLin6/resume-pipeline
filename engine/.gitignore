@@ -2,3 +2,4 @@ node_modules/
 # Session cookies, wall memory, pidfiles, claim spool — never committed.
 state/
 *.log
+recon/

@@ -1,8 +1,13 @@
 # Apply Engine — Interfaces (Phase 1 design)
 
-Status: **DESIGN, under review.** Nothing here is on the daily path. The live
-skill (`~/zylos/.claude/skills/resume/`) and the current stack in `skill/`
-are untouched by this branch.
+Status: **DESIGN, REVIEWED AND SETTLED (Phase 2).** Nothing here is on the
+daily path. The live skill (`~/zylos/.claude/skills/resume/`) and the current
+stack in `skill/` are untouched by this branch.
+
+The droplet reviewer has ruled on Q1-Q8 and raised seven critique items. Their
+rulings are folded into the body of this document and are **authoritative** —
+where a section previously offered a lean, it now states a rule. §6 records
+the rulings verbatim-in-substance so the provenance of each rule is auditable.
 
 Audience: the droplet reviewer (`zylos-felix-cloud`) and Felix.
 Companion docs: `architecture.md` (driver/process model), `claim-record.md`
@@ -124,10 +129,27 @@ interface AtsAdapter {
    *  default timeouts). MUST NOT navigate. */
   prepareContext?(ctx: AdapterContext): Promise<void>;
 
+  /** DECLARATIVE sign-in (Q1). Selectors only — the engine drives the
+   *  typing, so a credential never enters adapter code and never enters an
+   *  adapter's stack frame. This is the ONLY supported path for signing in
+   *  to an existing account. */
+  readonly loginSpec?: LoginSpec;
+
+  /** Whether this adapter is permitted to CREATE accounts. Default false.
+   *  This flag alone decides whether `ctx.secrets.forTenant()` exists on the
+   *  context handed to `passGate` (Q1). */
+  readonly accountCreation?: boolean;
+
   /** Gate that runs before the application form is reachable:
-   *  iCIMS guest-apply / "Apply with..." chooser, Workday sign-in or
-   *  account creation, a cookie banner. Returns how it resolved.
-   *  The engine supplies credentials; the adapter never reads .env. */
+   *  iCIMS guest-apply / "Apply with..." chooser, a cookie banner, Workday
+   *  ACCOUNT CREATION. Returns how it resolved.
+   *
+   *  Q1 ruling: `passGate` is imperative and is reserved for account
+   *  *creation* and for non-credential gates. It receives
+   *  `ctx.secrets.forTenant()` **only when the adapter declares
+   *  `accountCreation: true`**; on every other adapter that method is absent
+   *  from the context object, not merely unused. Ordinary sign-in goes
+   *  through `loginSpec` and never reaches adapter code. */
   passGate?(ctx: AdapterContext): Promise<GateResult>;
 
   /** ---- Page flow ---- */
@@ -167,8 +189,19 @@ interface AtsAdapter {
     typeaheadNeedsEnter: boolean;
     /** Never open a native date-picker widget on this ATS (F5). */
     forbidDatePicker: boolean;
-    /** Max submit attempts, ever, per (tenant, job). Ashby = 1 (F: spam
-     *  flag stickiness). */
+    /** Max submit attempts, ever, per (tenant, job).
+     *
+     *  Q4 ruling: **the default is 1 for every ATS**, not just Ashby. An
+     *  adapter that sets this above 1 must carry an inline comment citing
+     *  *observed tenant idempotency* — a specific run where a re-submit was
+     *  seen to be de-duplicated by the tenant. "Probably fine" is not a
+     *  citation. A double submission is worse than a missed retry in every
+     *  case in the record.
+     *
+     *  The companion rule lives in the submit step, not here: a submit whose
+     *  CLICK succeeded but whose confirmation read timed out is recorded as
+     *  `submitted` with `verified_by:"unconfirmed-click"` and is **never
+     *  retried**, regardless of this number. */
     maxSubmitAttempts: number;
     /** Selector fragments whose presence means a human-verification wall. */
     wallMarkers: WallMarker[];
@@ -209,24 +242,57 @@ interface AdapterContext {
                                   // becomes an adapter_note event, never a
                                   // parsed log line (F10)
   readonly secrets: {
-    /** Credential for this tenant, if one exists. The adapter receives the
-     *  value; it never learns the source and cannot enumerate. */
-    forTenant(): Promise<{ username: string; password: string } | null>;
-    /** One-time code from the pipeline inbox, adapter-blind to IMAP. */
-    verificationCode(opts: { since: Date; matching: RegExp }): Promise<string | null>;
+    /** Credential for this tenant. PRESENT ONLY when the adapter declares
+     *  `accountCreation: true` (Q1) — on every other adapter this method is
+     *  absent from the object, so an adapter cannot obtain a credential even
+     *  by calling it. The adapter receives the value; it never learns the
+     *  source and cannot enumerate. */
+    forTenant?(): Promise<{ username: string; password: string } | null>;
+    /** One-time code from the pipeline inbox, adapter-blind to IMAP.
+     *  Returns the code AND the id of the message it came from, so the
+     *  ledger can show which email was consumed without the engine having to
+     *  re-read the mailbox (Q1). */
+    verificationCode(opts: { since: Date; matching: RegExp }):
+      Promise<{ code: string; sourceMessageId: string } | null>;
   };
   readonly deadline: Date;        // engine-owned per-application budget
 }
 ```
 
-**Open question for the reviewer (Q1):** should `secrets.forTenant()` be on
-the adapter context at all, or should the engine drive login itself from a
-declarative `loginSpec` the adapter provides (selectors for user/pass/submit)?
-Declarative is safer (a credential never enters adapter code) but Workday's
-account-creation flow has enough branching that I currently expect an
-imperative `passGate`. My lean: **declarative `loginSpec` for sign-in, keep
-imperative `passGate` only for account *creation***, which is rare and
-already agent-supervised. Want your read.
+### Q1 ruling — credentials never reach adapter code
+
+1. **Sign-in is declarative.** The adapter supplies a `LoginSpec` (selectors);
+   the engine does the navigating, typing and waiting. A credential is read
+   from `~/zylos/.env` by the engine and written into the page by the engine.
+2. **`passGate` stays imperative, but only for account *creation*** and for
+   gates that involve no credential (iCIMS guest-apply, cookie banners,
+   "Apply with…" choosers).
+3. **`secrets.forTenant()` is conditionally present.** The engine builds the
+   `AdapterContext` per adapter; `forTenant` is attached only when
+   `adapter.accountCreation === true`. Capability, not convention.
+4. **The engine redacts by value-match before emit.** Every `adapter_note`
+   (and every other event payload) is scanned at emit time for the *literal
+   values* of any secret loaded for this run, and each occurrence is replaced
+   with `[redacted:secret]`. The existing forbidden-*key* check (F22) catches
+   `{password: …}`; this catches `log("created account with Hunter2!")`, which
+   is the shape the 2026-09-17 leak actually had. Both run.
+
+```ts
+interface LoginSpec {
+  /** Marker that says "this page is the sign-in page". */
+  at: { urlPattern?: RegExp; selector?: string; text?: RegExp };
+  username: string;               // selector
+  password: string;               // selector
+  submit: string;                 // selector
+  /** Optional selectors for the two-step layouts (Workday). */
+  continueAfterUsername?: string;
+  /** How the engine knows it worked / failed — never a sleep. */
+  success: { urlPattern?: RegExp; selector?: string };
+  failure?: { selector?: string; text?: RegExp };
+  /** If sign-in can demand an emailed code. */
+  verification?: { input: string; submit: string; matching: RegExp };
+}
+```
 
 ### Supporting types
 
@@ -480,7 +546,7 @@ interface ProseAnswer {
 }
 ```
 
-**Open question (Q2):** free-text. The settled plan says "unmapped REQUIRED
+**Q2 — SETTLED (see ruling below).** The original question was: free-text. The settled plan says "unmapped REQUIRED
 field → park, never model-guess", and enum fields are fully covered by the
 above. But a novel *essay* question ("describe a time you…") that the bank
 does not cover is currently a park, and on recent days that is a meaningful
@@ -491,6 +557,23 @@ stream for Felix to audit post-hoc. I lean (a) for Phase 2 and revisit with
 data — the event stream will tell us exactly how many applications (a) costs
 us, which we currently cannot measure. Your call matters here since you
 raised the typed-event requirement partly for this.
+
+### Q2 ruling — novel essays PARK in this phase
+
+A novel essay question the bank does not cover is a **park**, full stop. No
+assembly, no model call, no "restricted composition from bank + profile" —
+that path is not built in Phase 2 and no code path exists that could reach it.
+
+The park is recorded as `field_skipped{reason:"would_require_invention"}`, and
+the engine **counts these per run day** and reports the count on the day's
+summary. That number is the entire point of parking rather than guessing: it
+converts "we might be losing applications to this rule" from an anxiety into a
+measurement. Phase 3 revisits assembly *with* the count in hand, or does not.
+
+The reason code stays distinct from `unmapped_required`: an unmapped required
+*enum* is a bank gap fixable by adding a fact; a `would_require_invention` is
+a question no bank entry could answer without writing new prose. Conflating
+them would hide which of the two is actually costing us applications.
 
 ### 3.4 `FieldKey`
 
@@ -529,11 +612,31 @@ anywhere (this was the droplet's requirement, and F10 is why it is right).
 ### 4.1 Transport
 
 - **JSONL**, one object per line, append-only, `fsync` on submit-class events.
-- Path: `~/zylos/workspace/resume-drops/<date>/events/applier<i>.jsonl`.
-- Written by the engine process; nothing else writes that file.
-- A crash mid-application leaves a valid prefix — every consumer must tolerate
-  a truncated final line (this is what makes it crash-safe where the compact
-  markdown ledger was not).
+- **Per-applier files** (Q3 ruling): `~/zylos/workspace/resume-drops/<date>/events/applier<i>.jsonl`.
+- Written by exactly one engine process; nothing else ever writes that file.
+
+**Q3 ruling — per-applier files, merge key `(applier, seq)`.**
+
+One shared file with `O_APPEND` would make Stage 3 trivial but puts a dying
+applier's partial write in the same file as a healthy sibling's records. That
+is F4's lesson (a range close killed a sibling's in-flight application) applied
+to files: **a failing applier must not be able to damage another applier's
+record.** So:
+
+- one file per applier, merged at read time;
+- the merge key is the pair **`(applier, seq)`** — globally unique because
+  `seq` is per-applier monotonic, and stable under re-ordering, so the merge is
+  a sort, not a reconciliation;
+- **a truncated final line is DROPPED and REPORTED, never repaired.** The
+  reader discards the unparseable tail, counts it, and surfaces
+  `events_truncated: {applier: i, bytes: n}` in the Stage 3 summary. No
+  best-effort JSON repair, no "probably it was an application_ended". A
+  half-written event is an absence of information, and inventing its contents
+  is exactly the class of error the typed stream exists to abolish.
+
+A crash mid-application therefore leaves a valid prefix plus one reported
+casualty — which is what makes it crash-safe where the compact markdown ledger
+was not.
 
 ### 4.2 Envelope
 
@@ -569,7 +672,12 @@ budget measurable (§4.4) and makes gap detection possible after a crash.
 { "type": "preflight_result",
   "data": { "reachable": true, "http_status": 200,
             "wall_class": null, "elapsed_ms": 2140,
-            "context": "throwaway" } }
+            "context": "throwaway",
+            // C5: one probe per RUN (not per job), stamped onto every
+            // preflight so a day's wall rate is interpretable. A datacenter
+            // egress is itself a wall risk factor and must be visible when
+            // reading back why a day went badly.
+            "ip_class": "residential" } }
 
 // Per-field
 { "type": "field_discovered",
@@ -594,8 +702,17 @@ budget measurable (§4.4) and makes gap detection possible after a crash.
 
 { "type": "field_filled",
   "data": { "field_key": "contact.phone", "value_hash": "sha256:...",
-            "value_preview": "412…4821", "strategy": "fill|type|select",
-            "retries": 0 } }
+            // Q5: free-text preview ONLY, first 12 chars + length. Never for
+            // a credential/email/phone/address field — those carry no preview
+            // at all, only the hash. See §4.6.
+            "value_preview": null, "value_len": 12,
+            "strategy": "fill|type|select", "retries": 0 } }
+
+// A prose answer is recorded by IDENTITY, never by rendered text (Q5).
+{ "type": "field_filled",
+  "data": { "field_key": "prose.why-company", "answer_id": "A-why-company",
+            "variant": 150, "slots": { "team": "Autonomy" },
+            "value_hash": "sha256:...", "strategy": "fill" } }
 
 // Uploads
 { "type": "upload_attempted",
@@ -642,7 +759,18 @@ budget measurable (§4.4) and makes gap detection possible after a crash.
 { "type": "submitted",
   "data": { "application_id": "R-104882", "confirmation_url": "…",
             "confirmation_text": "Thank you for applying",
-            "screenshot": "…", "verified_by": "confirmation-page" } }
+            "screenshot": "…",
+            // Q4: "unconfirmed-click" means the click landed but the
+            // confirmation read timed out. It is still SUBMITTED and is
+            // NEVER retried — a double submission is the worse error.
+            "verified_by": "confirmation-page" | "application-id"
+                         | "unconfirmed-click" } }
+
+// Q7: liveness. Emitted every 10 events or 5 minutes, whichever comes first,
+// so a silent applier is distinguishable from a slow one.
+{ "type": "heartbeat",
+  "data": { "since_ms": 61000, "events_since": 10, "step": "candidate-profile",
+            "last_event_type": "field_filled" } }
 
 { "type": "application_ended",
   "data": { "outcome": "submitted" | "retry" | "wall" | "needs-felix"
@@ -681,6 +809,81 @@ Events are validated **at emit time** against the schema (closed enums for
 `type`, `outcome`, `reason`, `wall_class`). An invalid event throws in the
 engine rather than being written — the 2026-09-05 "unknown label silently
 skipped" failure becomes impossible to introduce.
+
+### 4.6 Q5 ruling — what the stream may carry
+
+The event stream is committed to the `resume-drops` repo, so its contents are
+as public as that repo is. The rule is therefore not "mask PII where
+convenient" but **an allowlist of what may appear at all**:
+
+**May appear:** `field_key` (a canonical key, never a page label except in
+`field_skipped.label`, which is the page's own wording and carries no value),
+`value_hash`, `value_len`, canonical enum values, `option_text` (the ATS's own
+rendered option wording — not Felix's data), `match` kind, `source`, counts,
+timings, URLs, `application_id`, confirmation text.
+
+**May appear only as a 12-char head + length:** free-text answers that are not
+identity data — `value_preview` = `value.slice(0, 12)` plus `value_len`. This
+exists so a human reading the stream can tell a garbled fill from a good one.
+
+**Never appears, in any form, at any length:**
+
+- credentials (already structurally refused by the forbidden-key check, F22,
+  and now also by value-match redaction, Q1);
+- **email addresses, phone numbers, street addresses** — these are identity
+  fields; their events carry the hash only, `value_preview: null`. The old
+  `"412…4821"` masked preview is withdrawn: a masked phone number is still a
+  phone number to anyone holding a second copy.
+- **rendered prose.** A prose answer is stored as `answer_id` + `variant` +
+  `slots`, which is enough to reconstruct it from the bank and enough to audit
+  which answer went where, without putting the essay in the repo.
+
+**Enforcement is at emit time, not by convention.** The emitter extends its
+guards with:
+
+1. the existing forbidden-key scan (F22);
+2. **secret value-match redaction** (Q1) over every string in the payload;
+3. an **identity-field guard**: `field_filled` for any `FieldKey` in the
+   identity set (`contact.email`, `contact.phone`, `contact.address.*`,
+   `selfid.signature`) throws if `value_preview` is non-null;
+4. a **shape guard on prose**: `field_filled` for a `prose.*` key throws if it
+   carries `value_preview` instead of `answer_id`;
+5. a **PII pattern sweep** over every string in every payload: anything
+   matching an email address or a 10+ digit phone-shaped run throws. This is
+   the backstop that catches a value arriving through a field nobody
+   classified — including the forbidden CMU address, which must never appear
+   in the stream even as evidence that we refused it (the `field_skipped`
+   event names the *reason*, not the value).
+
+### 4.7 Q7 ruling — heartbeat is an engine constant
+
+`heartbeat` is emitted by the engine, not by any adapter, **every 10 events or
+every 5 minutes, whichever comes first**. It is not adapter-configurable and
+not per-ATS tunable — a constant, so that "this applier has gone quiet" means
+the same thing on every ATS.
+
+Crucially it is tied to **`field_filled` as well as `page_advanced`**. A
+heartbeat keyed only to page transitions would go silent for the entire length
+of a 25-field page, which is exactly the window in which the current stack's
+wedges happen. Ten fills is a heartbeat.
+
+### 4.8 Q8 ruling — drop-at-apply is TERMINAL
+
+`application_ended{outcome:"drop-at-apply"}` writes `state:"parked"` with the
+drop reason, and the job is **never re-queued** — not by the retry wave, not on
+a later day, not by a fresh run. The claim is not released.
+
+The reasoning is that a drop-at-apply is a *rule* firing (course-schedule
+document demanded, role gate, term mismatch), and rules are deterministic over
+the posting. If a later machine reaches a different conclusion on the same
+posting, that is **rule drift**, and the right response is to surface the
+disagreement for a human — not to let the second machine's verdict silently
+win by re-attempting. The engine therefore records the drop reason in the
+claim record and a differing later verdict is reported as a drift alert.
+
+**Release is reserved for genuinely never-attempted work:** a crash *before the
+first navigation* of the application. Once the engine has navigated, the job is
+attempted, and its outcome — including a drop — stands.
 
 ---
 
@@ -734,27 +937,71 @@ pass costs one action in Playwright (`frame.locator(...).all()`), whereas on
 the current stack a re-snapshot is another CLI spawn plus a model turn — which
 is exactly why the current stack skips it and keeps getting bitten.
 
+**C3: upload verification is a standing invariant, not a one-time check.**
+Avature attaches one résumé per *account*, not per application (F18), and
+Eightfold re-imports a cached profile on every fresh visit (F16). Both mean an
+artifact verified as attached on page 2 can be a *different* artifact by page
+4, with no action of ours in between. So:
+
+```
+after every page_advanced, while any artifact is attached:
+  re-run verifyUpload(target, artifact)
+  re-assert artifact.stampedJobKey === ctx.jobKey
+  mismatch or attached:false  ->  hard park, never a silent re-upload
+```
+
+The re-check emits `upload_verified` again with the same `target`, so the
+stream shows the attachment being *continuously* true rather than
+once-upon-a-time true. A stream where `upload_verified{attached:true}` appears
+once and a submit happens four pages later is, after this rule, a schema
+violation rather than a plausible record.
+
+### 5.6 The review gate lives in code (C6)
+
+The Gate 2 abort condition — "any engine submit without a passing review diff"
+— is not a runbook instruction a supervising agent might overlook. It is an
+assertion inside `submit()`:
+
+```
+submit(ctx):
+  const rd = lastEventFor(jobKey, 'review_diff')
+  if (!rd)                    throw ReviewGateError('no review diff')
+  if (rd.data.verdict !== 'pass') throw ReviewGateError('review diff failed')
+  if (rd.seq < lastMutatingSeq(jobKey)) throw ReviewGateError('diff is stale')
+  ...only now may a submit-labelled control be clicked
+```
+
+The staleness clause matters as much as the verdict: a diff that passed
+*before* the last fill is not evidence about the form being submitted. The
+engine has no flag, no override parameter, and no caller-supplied bypass —
+there is deliberately no way to spell "submit anyway" in this API.
+
 ---
 
-## 6. Open questions for the droplet reviewer
+## 6. Reviewer rulings (Q1-Q8) — settled, authoritative
 
-- **Q1** (§2): declarative `loginSpec` vs imperative `passGate` for
-  credentials. My lean: declarative for sign-in, imperative only for account
-  creation.
-- **Q2** (§3.3): novel essay questions — always park, or bank-restricted
-  assembly with verbatim audit trail? My lean: park in Phase 2, then decide
-  with the numbers the event stream gives us.
-- **Q3** (§4.1): should the event stream be per-applier files (as specified)
-  or one file with an `applier` field and `O_APPEND` writes? Per-applier
-  avoids interleaved-write risk entirely; one file makes Stage 3 trivial. My
-  lean: per-applier files + a merge step, because a partial write from a dead
-  applier must not corrupt a sibling's records — that is F4's lesson applied
-  to files.
-- **Q4** (§2 `quirks.maxSubmitAttempts`): Ashby's one-attempt rule is a quirk
-  today. Should *every* ATS default to 1 and opt into more, rather than the
-  reverse? A double-submit is worse than a missed retry in every case I can
-  find in the record.
-- **Q5** (§4.3): `field_filled.value_preview` — I masked it (`412…4821`).
-  Confirm you want PII masked in the stream given the stream is committed to
-  the resume-drops repo. My lean: mask everything except `field_key` and
-  hashes; the ledger already carries what Felix needs to read.
+Ruled by the droplet reviewer, 2026-09-17. Each is implemented in Phase 2 at
+the section cited; this table is the index, not the specification.
+
+| Q | Ruling | Where implemented |
+|---|---|---|
+| **Q1** | Declarative `loginSpec` for sign-in. Imperative `passGate` only for **account creation** and credential-free gates. `secrets.forTenant()` is attached to the context **only when `accountCreation: true`**. `verificationCode` returns `{code, sourceMessageId}`. Engine **redacts secret values by value-match** from every `adapter_note` (and every payload) before emit. | §2, §4.6 |
+| **Q2** | Novel essays **PARK** this phase. `field_skipped{reason:"would_require_invention"}`, **counted per day**. No assembly path exists. | §3.3 |
+| **Q3** | **Per-applier event files**, merge key `(applier, seq)`. A truncated final line is **dropped and reported**, never repaired. | §4.1 |
+| **Q4** | `maxSubmitAttempts` defaults to **1 for every ATS**; opting higher requires an adapter comment citing *observed tenant idempotency*. A submit whose click succeeded but whose confirmation read timed out is **`submitted` with `verified_by:"unconfirmed-click"` and is NEVER retried**. | §2 quirks, §4.3 |
+| **Q5** | Stream carries `field_key`, hashes, enum canonicals, `option_text` only. Free-text preview = **first 12 chars + length**. Prose stored as **answer id + variant + slots**, never rendered text. **No credential / email / phone / address ever**, at any length — enforced by extended emit-time guards. | §4.6 |
+| **Q6** | The claim is acquired at **pre-flight, before tailoring** — not at first navigation. A wall found at pre-flight must not have already cost a tailoring slot, and two machines must not both tailor the same posting. `NullClaimClient` remains acceptable this phase. | `architecture.md` §8a, `claim-record.md` |
+| **Q7** | `heartbeat` is an **engine constant**: every **10 events or 5 minutes**, whichever first, tied to **`field_filled` as well as `page_advanced`**. Not adapter-configurable. | §4.7 |
+| **Q8** | `drop-at-apply` is **TERMINAL** — `state:"parked"` + drop reason, claim not released. A differing later machine conclusion is **rule drift** to surface, not grounds to re-attempt. Release only for genuinely never-attempted work (crash before first navigation). | §4.8, `claim-record.md` |
+
+## 7. Reviewer critique items (C1-C7) — accepted
+
+| # | Item | Disposition |
+|---|---|---|
+| **C1** | **GATE 0 NOW.** Prove `storageState` (cookies + localStorage) round-trips across a browser **death** on the exact Chrome-for-Testing build the pipeline uses; if `newContext()` isolation fails on that build, document the `--user-data-dir-per-applier` fallback. | **DONE, PASS.** `test/gate0-storagestate.test.js` SIGKILLs the scratch Chrome mid-session and restores into a *different* browser on a *different* port with a *different* profile. Verdict and fallback status: `architecture.md` §4a. |
+| **C2** | **Supervisor resume = re-verify.** After re-attach, re-run discovery; every pre-crash `field_filled` is **unverified until re-read**. | `architecture.md` §5; the engine's `resume()` marks the step dirty and re-reads before it may advance. |
+| **C3** | **Re-check `upload_verified` after every `page_advanced`** — Avature/Eightfold swap attachments at *account* level, so an upload verified on page 2 can be a different file by page 4. | §5.5 extended: the post-upload barrier becomes a **standing invariant**, re-asserted on every advance while an artifact is attached. |
+| **C4** | **Wall memory keyed `(tenant, wall_class, where)`** with decay: the third-strike skip **expires after 14 days**. | `architecture.md` §8a. |
+| **C5** | `preflight_result.ip_class` (`"residential" \| "datacenter"`) from a **one-time per-run probe**. | §4.3 `preflight_result`; probe runs once per run, not per job. |
+| **C6** | **In-engine assertion:** refuse to pass any `review_diff` with `verdict:"fail"`. The Gate 2 abort condition lives in **code**, not in a runbook. | §5.6 — `submit()` throws `ReviewGateError` unless the immediately preceding `review_diff` for this job is `pass`. |
+| **C7** | Workday/Greenhouse/Lever budgets are published as **"TBD from shadow"**; only iCIMS keeps a line-item target (`<40`). | `architecture.md` §8 table rewritten. |

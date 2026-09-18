@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 2,
+  "_generated": {
+    "from": "application-profile.json",
+    "at": "2026-09-18T05:05:42.405Z"
+  },
+  "identity": {
+    "firstName": "Felix",
+    "lastName": "Lin",
+    "fullName": "Felix Lin",
+    "middleName": null,
+    "preferredName": null,
+    "pronouns": null
+  },
+  "contact": {
+    "email": "felixl0808@gmail.com",
+    "emailForbidden": [
+      "felixl@andrew.cmu.edu"
+    ],
+    "phone": {
+      "e164": "+19499810389",
+      "digits": "9499810389",
+      "formatted": "(949) 981-0389",
+      "type": "mobile"
+    },
+    "address": {
+      "line1": "64 Copper Mine",
+      "line2": null,
+      "city": "Irvine",
+      "county": "Orange",
+      "state": "CA",
+      "stateFull": "California",
+      "postalCode": "92602",
+      "country": "US",
+      "countryFull": "United States of America"
+    }
+  },
+  "links": {
+    "linkedin": "https://www.linkedin.com/in/felix-lin-52048b29a/",
+    "github": "https://github.com/FelixLin6",
+    "website": "https://felixlin.dev"
+  },
+  "education": [
+    {
+      "school": "Carnegie Mellon University",
+      "schoolAliases": [
+        "Carnegie Mellon",
+        "Carnegie Mellon University (CMU)"
+      ],
+      "degreeLevel": "bachelors",
+      "degreeText": "Bachelor of Science (BS)",
+      "fieldOfStudy": "Artificial Intelligence",
+      "fieldOfStudyFallbacks": [
+        "Artificial Intelligence and Robotics",
+        "Computer Science",
+        "Computer Science / Information Technology"
+      ],
+      "start": {
+        "year": 2024,
+        "month": 8,
+        "day": null,
+        "dayRule": "first-of-month"
+      },
+      "end": {
+        "year": 2028,
+        "month": 5,
+        "day": null,
+        "dayRule": "first-of-month"
+      },
+      "endIsExpected": true,
+      "gpa": 3.36,
+      "gpaScale": 4,
+      "currentlyEnrolled": "yes",
+      "returningAfterInternship": "yes",
+      "classStanding": "Junior",
+      "graduated": "no",
+      "transcriptFile": "~/zylos/vault/my_second_brain/sources/2026-08-18-cmu-unofficial-academic-record.pdf"
+    }
+  ],
+  "experience": [
+    {
+      "title": "Software Engineer Intern",
+      "employer": "OpenMax",
+      "onResume": true,
+      "city": "Los Angeles",
+      "state": "CA",
+      "country": "US",
+      "start": {
+        "year": 2026,
+        "month": 5,
+        "day": null,
+        "dayRule": "first-of-month"
+      },
+      "end": {
+        "year": 2026,
+        "month": 8,
+        "day": null,
+        "dayRule": "first-of-month"
+      },
+      "isCurrent": "no",
+      "description": "Built six production messaging-channel integrations (Discord, Microsoft Teams, WhatsApp Business, LINE, Zalo, Zalo Personal) on a SQLite-backed gateway, the channel onboarding flow in Next.js/TypeScript, a hybrid BM25 + dense-embedding RAG memory-retrieval pipeline, and a Dockerized LongMemEval memory-evaluation harness.",
+      "reasonForLeaving": "Summer internship ended (fixed-term).",
+      "mayContactEmployer": null,
+      "enterOnlyIfCompleteHistoryRequired": false
+    },
+    {
+      "title": "Mobile Development Intern",
+      "employer": "Chapman University — Gait Rehabilitation & Research Lab",
+      "onResume": true,
+      "city": "Orange",
+      "state": "CA",
+      "country": "US",
+      "start": {
+        "year": 2021,
+        "month": 9,
+        "day": null,
+        "dayRule": "first-of-month"
+      },
+      "end": {
+        "year": 2021,
+        "month": 12,
+        "day": null,
+        "dayRule": "first-of-month"
+      },
+      "isCurrent": "no",
+      "description": "Built a cross-platform Flutter/Dart stroke-rehabilitation app: exercise rep tracking, progress-visualization charts, therapy-adherence monitoring.",
+      "reasonForLeaving": "Fixed-term internship ended.",
+      "mayContactEmployer": null,
+      "enterOnlyIfCompleteHistoryRequired": false
+    },
+    {
+      "title": "Machine Learning Intern",
+      "employer": "OpenMax",
+      "onResume": false,
+      "city": "Remote",
+      "state": null,
+      "country": "US",
+      "start": {
+        "year": 2025,
+        "month": 8,
+        "day": null,
+        "dayRule": "first-of-month"
+      },
+      "end": {
+        "year": 2025,
+        "month": 12,
+        "day": null,
+        "dayRule": "first-of-month"
+      },
+      "isCurrent": "no",
+      "description": "Self-directed exploratory research into LLM-agent evaluation (LLM-as-judge rubrics, failure-mode analysis; surveyed Pydantic Evals, OpenAI Evals, DeepEval). Learning, not a shipped artifact.",
+      "reasonForLeaving": null,
+      "mayContactEmployer": null,
+      "enterOnlyIfCompleteHistoryRequired": true
+    }
+  ],
+  "authorization": {
+    "workAuthorization": "authorized-no-sponsorship",
+    "sponsorship": "none-now-or-future",
+    "sponsorshipNote": "'No sponsorship' is scoped to US roles only. Any non-US jurisdiction (e.g. Hong Kong) needs an employer-sponsored visa — answer 'Yes' there.",
+    "citizenship": "United States",
+    "itarEarEligible": "yes",
+    "clearance": "none",
+    "clearanceConfidence": "vault-default-never-confirmed",
+    "over18": "yes",
+    "driversLicense": "yes",
+    "previouslyEmployed": "no"
+  },
+  "availability": {
+    "earliestStart": {
+      "year": 2027,
+      "month": 1,
+      "day": null,
+      "dayRule": "first-of-month"
+    },
+    "primaryTerm": "Summer 2027",
+    "terms": [
+      "Winter 2027",
+      "Spring 2027",
+      "Summer 2027"
+    ],
+    "employmentTypes": [
+      "internship",
+      "co-op"
+    ],
+    "hoursPerWeek": "Full-time (40)"
+  },
+  "locationPolicy": {
+    "openToRelocation": "yes",
+    "arrangements": [
+      "onsite",
+      "hybrid",
+      "remote"
+    ],
+    "currentLocation": "Irvine, CA",
+    "policy": "Maximal — on any location checklist select everything / the widest option. No US location is a reason to skip a role."
+  },
+  "selfId": {
+    "gender": "male",
+    "ethnicity": "asian",
+    "hispanicOrLatino": "no",
+    "veteran": "not-a-protected-veteran",
+    "disability": "no",
+    "signatureName": "Felix Lin",
+    "answerPolicy": "Answer truthfully with these values. Do NOT choose 'decline to self-identify'."
+  },
+  "source": {
+    "howDidYouHear": [
+      "Simplify",
+      "Job board / Job site",
+      "Online research / Internet search",
+      "Email / Newsletter",
+      "Other"
+    ],
+    "freeText": "SWElist / Simplify job digest"
+  },
+  "compensation": {
+    "minimumHourlyUsd": 20,
+    "minimumAnnualUsd": 40000,
+    "rules": "Free-text → 'Negotiable — open to <company>'s standard intern rate'. Required numeric → the posting's published range floor (never below $20/hr); no published range → 20/hr or 40000/yr in whatever unit the field asks for (Workday strips non-digits, so 23.50 becomes 2350 — enter integers). Required band picker → lowest band consistent with ≥$20/hr."
+  },
+  "standardYesNo": {
+    "willing_to_relocate": "yes",
+    "willing_to_travel": "yes",
+    "consent_to_background_check": "yes",
+    "consent_to_drug_screen": null,
+    "agree_to_terms_and_privacy": "yes",
+    "subscribe_to_marketing": "no",
+    "consent_to_sms_recruiting": "yes",
+    "consent_to_data_retention": "yes",
+    "has_non_compete": "no",
+    "related_to_employee": "no"
+  },
+  "constraints": {
+    "neverInvent": true,
+    "gpa": {
+      "value": 3.36,
+      "scale": 4,
+      "bandRule": "nearest-band-never-round-up",
+      "rules": "Free numeric field → 3.36 exactly. Band/step picker that cannot express 3.36 → the nearest band (3.4 on a 0.1 grid; '3.0–3.49' on a range picker). Never round to 3.5+ (the SpaceX 3.6 incident). Résumé and form must agree."
+    },
+    "forbiddenValues": [
+      "SmartMeter '~10% water-waste reduction' (fabricated, never cite)",
+      "mem-eval 75% / 20% as a before/after improvement (they are run data on a fixed benchmark)",
+      "nDCG@k 0.95 / injected-F1 0.85 as benchmark results (they are regression gates on an 18-case set)",
+      "10-301 hw5 OCR 0.72 val error (2-epoch demo run)",
+      "'seven channels' — it is six; Telegram was 4 misc-fix commits"
+    ],
+    "forbiddenIdentities": [
+      "felixl@andrew.cmu.edu"
+    ],
+    "onePacketRule": true,
+    "noDurationsForTools": true
+  },
+  "missing": [
+    "name.preferred / name.pronouns",
+    "education[0].major_gpa (computed ≈3.2–3.3 earlier, not higher than cumulative — so never worth entering)",
+    "high_school.name",
+    "date_of_birth (never on file; park if required)",
+    "languages_spoken[Chinese].proficiency label",
+    "work_experience[*].may_contact_employer",
+    "references.professional (×3) and references.openmax_reference_contact",
+    "standard_yes_no_defaults.willing_to_travel / consent_to_drug_screen",
+    "security clearance: 'None' is the vault default, never confirmed",
+    "a 'number that describes me' / non-technical interests (vault flags this gap explicitly)"
+  ]
+}

@@ -27,6 +27,8 @@ export const EVENT_TYPES = Object.freeze([
   'application_ended',
   'adapter_note',
   'driver_event',
+  // Q7: engine-owned liveness. Every 10 events or 5 minutes, whichever first.
+  'heartbeat',
 ]);
 
 export const OUTCOMES = Object.freeze([
@@ -69,6 +71,34 @@ const FORBIDDEN_KEYS = Object.freeze([
   'password', 'passwd', 'secret', 'token', 'credential', 'api_key', 'apikey',
 ]);
 
+// --------------------------------------------------------------------- Q5 ---
+// The stream is committed to the resume-drops repo, so the rule is an
+// allowlist of what may appear at all — not "mask where convenient".
+
+/** Identity fields whose events carry a HASH ONLY. A masked phone number is
+ *  still a phone number to anyone holding a second copy, so the old
+ *  "412…4821" preview is withdrawn. */
+export const IDENTITY_FIELD_KEYS = Object.freeze([
+  'contact.email', 'contact.phone',
+  'contact.address.line1', 'contact.address.line2', 'contact.address.city',
+  'contact.address.state', 'contact.address.postalCode', 'contact.address.country',
+  'selfid.signature',
+]);
+
+/** Free-text preview budget: first 12 characters, plus a length. Enough to
+ *  tell a garbled fill from a good one, not enough to be a copy of the data. */
+export const VALUE_PREVIEW_MAX = 12;
+
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+// A phone-shaped run, bounded by non-alphanumerics so it cannot fire on the
+// digits inside a sha256 hex digest or a build id.
+const PHONE_RE = /(?<![0-9A-Za-z])(?:\+?1[-. ]?)?(?:\(\d{3}\)|\d{3})[-. ]?\d{3}[-. ]?\d{4}(?![0-9A-Za-z])/;
+/** Keys whose values are URLs/paths: full of long digit runs that are ids and
+ *  timestamps, never phone numbers. Still swept for email addresses. */
+const URLISH_KEY = /(^|_)(url|href|path|screenshot|file)$/i;
+/** Keys whose values are digests: never swept for phone shapes. */
+const HASHISH_KEY = /(^|_)(hash|sha256|sha1|md5|etag)$/i;
+
 export class EventValidationError extends Error {}
 
 function fail(msg) { throw new EventValidationError(msg); }
@@ -80,6 +110,26 @@ function assertNoSecrets(obj, path = 'data') {
       fail(`event payload carries a forbidden key: ${path}.${k}`);
     }
     if (v && typeof v === 'object') assertNoSecrets(v, `${path}.${k}`);
+  }
+}
+
+/**
+ * Q5 backstop: sweep every string in the payload for PII shapes. This is what
+ * catches a value arriving through a field nobody classified — including the
+ * forbidden CMU address, which must never appear in the stream even as
+ * evidence that we refused it (field_skipped names the REASON, not the value).
+ */
+function assertNoPii(obj, path = 'data') {
+  if (obj === null || typeof obj !== 'object') return;
+  for (const [k, v] of Object.entries(obj)) {
+    if (typeof v === 'string') {
+      if (EMAIL_RE.test(v)) fail(`event payload carries an email address: ${path}.${k}`);
+      if (!URLISH_KEY.test(k) && !HASHISH_KEY.test(k) && PHONE_RE.test(v)) {
+        fail(`event payload carries a phone-shaped value: ${path}.${k}`);
+      }
+    } else if (v && typeof v === 'object') {
+      assertNoPii(v, `${path}.${k}`);
+    }
   }
 }
 

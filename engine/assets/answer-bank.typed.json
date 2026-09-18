@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 2,
+  "_generated": {
+    "from": [
+      "application-profile.json",
+      "answer-bank.md"
+    ],
+    "at": "2026-09-18T05:05:42.406Z",
+    "note": "GENERATED. Edit the live assets and re-run tools/build-bank.js; never hand-edit this file."
+  },
+  "facts": {
+    "auth.workAuthorized": {
+      "value": "authorized-no-sponsorship",
+      "source": "profile"
+    },
+    "auth.sponsorship": {
+      "value": "none-now-or-future",
+      "source": "profile"
+    },
+    "auth.over18": {
+      "value": "yes",
+      "source": "profile"
+    },
+    "auth.itarEligible": {
+      "value": "yes",
+      "source": "profile"
+    },
+    "auth.previouslyEmployed": {
+      "value": "no",
+      "source": "profile"
+    },
+    "auth.driversLicense": {
+      "value": "yes",
+      "source": "profile"
+    },
+    "education.degreeLevel": {
+      "value": "bachelors",
+      "source": "profile"
+    },
+    "education.currentlyEnrolled": {
+      "value": "yes",
+      "source": "profile"
+    },
+    "education.graduated": {
+      "value": "no",
+      "source": "profile"
+    },
+    "avail.employmentType": {
+      "value": "internship",
+      "source": "profile"
+    },
+    "loc.relocation": {
+      "value": "yes",
+      "source": "profile"
+    },
+    "selfid.gender": {
+      "value": "male",
+      "source": "profile"
+    },
+    "selfid.ethnicity": {
+      "value": "asian",
+      "source": "profile"
+    },
+    "selfid.hispanic": {
+      "value": "no",
+      "source": "profile"
+    },
+    "selfid.veteran": {
+      "value": "not-a-protected-veteran",
+      "source": "profile"
+    },
+    "selfid.disability": {
+      "value": "no",
+      "source": "profile"
+    },
+    "consent.terms": {
+      "value": "yes",
+      "source": "profile"
+    },
+    "consent.dataRetention": {
+      "value": "yes",
+      "source": "profile"
+    },
+    "consent.backgroundCheck": {
+      "value": "yes",
+      "source": "profile"
+    },
+    "consent.smsRecruiting": {
+      "value": "yes",
+      "source": "profile"
+    },
+    "consent.marketing": {
+      "value": "no",
+      "source": "profile"
+    },
+    "misc.hasNonCompete": {
+      "value": "no",
+      "source": "profile"
+    },
+    "misc.relatedToEmployee": {
+      "value": "no",
+      "source": "profile"
+    }
+  },
+  "prose": [
+    {
+      "id": "a-a",
+      "section": "A",
+      "title": "Why this company / why this role — template",
+      "covers": [
+        "Why <company>?",
+        "Why do you want to work here?",
+        "What interests you about this role/team?",
+        "Why are you a good fit?"
+      ],
+      "coversPatterns": [
+        "",
+        "want|work|here",
+        "What|interests|about|this|role/team",
+        "good"
+      ],
+      "variants": [
+        {
+          "maxWords": 163,
+          "text": "about this role/team?\", \"Why are you a good fit?\"\n\nI build infrastructure for AI agents: this summer at OpenMax I shipped six production\nmessaging-channel integrations against one channel-conformance contract, a hybrid\nBM25 + dense-embedding retrieval pipeline fused by Reciprocal Rank Fusion and\nreranked by a cross-encoder, and a Dockerized evaluation harness that scores an\nagent's long-term memory. Every one of those handled input I did not control or\nquality I could not eyeball, so I learned to design the measurement before tuning\nthe system and to test the failure path, not just the happy path. [[SLOT: one\nsentence naming the team/product/problem from the JD and which of the above it\nmaps to — e.g. \"Your <team> works on <X>, which is the same class of problem as\n<retrieval / channel gateway / eval harness>.\"]] I want to spend the summer on a\nteam that ships to real users and reviews code seriously, because that is where\nthe OpenMax work taught me the most."
+        }
+      ],
+      "slots": [
+        {
+          "name": "slot1",
+          "instruction": "one\nsentence naming the team/product/problem from the JD and which of the above it\nmaps to — e.g. \"Your <team> works on <X>, which is the same class of problem as\n<retrieval / channel gateway / eval harness>.\"",
+          "from": "jd",
+          "required": true
+        }
+      ],
+      "hasSlots": true
+    },
+    {
+      "id": "a-b",
+      "section": "B",
+      "title": "Hardest technical problem — short form",
+      "covers": [
+        "Hardest thing you've done",
+        "Most challenging technical problem",
+        "A time you debugged something difficult",
+        "Describe a technical accomplishment"
+      ],
+      "coversPatterns": [
+        "Hardest|thing|done",
+        "Most|challenging|technical|problem",
+        "time|debugged|something|difficult",
+        "Describe|technical|accomplishment"
+      ],
+      "variants": [
+        {
+          "maxWords": 190,
+          "text": "\"A time you debugged something difficult\", \"Describe a technical accomplishment\".\n\nThe hardest was diagnosing mem-eval, a LongMemEval-based harness I built at OpenMax to\nmeasure how well an agent's memory survives months of conversation. The harness itself\nwas nontrivial: a Dockerized distill → answer → judge pipeline, 125 questions, graded by a\njudge rather than exact-string match, replaying one memory-sync per simulated day\nbecause a single whole-history pass inflates the score. It reported roughly 75%\nretention overall, but one category, single-session preferences, scored 3 of 15. The\neasy move was to log it as a known weakness. Instead I first re-checked the replay\nmethodology, since a bad benchmark produces a bad number as easily as a bad system, then\ntraced the loss stage by stage. The failure was not at answer-time retrieval, where\neveryone looks first, but two stages upstream in distillation, where those preferences\nwere being summarized away before they became durable memories. I documented it with a\nworked example in the README. What I learned: a benchmark number is only useful if you\nkeep asking why, and the stage you'd naturally blame is often not the one at fault."
+        }
+      ],
+      "slots": [],
+      "hasSlots": false
+    },
+    {
+      "id": "a-c",
+      "section": "C",
+      "title": "Project deep-dive — pick the variant by role",
+      "covers": [
+        "Describe a project you're proud of",
+        "Tell us about a technical project",
+        "Hands-on technical project and your role",
+        "Most highly technical accomplishment"
+      ],
+      "coversPatterns": [
+        "Describe|project|proud",
+        "Tell|about|technical|project",
+        "Hands|technical|project|your|role",
+        "Most|highly|technical|accomplishment"
+      ],
+      "variants": [
+        {
+          "maxWords": 28,
+          "text": "\"Hands-on technical project and your role\", \"Most highly technical accomplishment\".\n\nperformance, avionics, or C/C++-heavy role → C2. Data science, analytics, or\ntime-series role → C3. If unsure, C1."
+        }
+      ],
+      "slots": [],
+      "hasSlots": false
+    },
+    {
+      "id": "a-c1",
+      "section": "C1",
+      "title": "Retrieval system + its evaluation (AI/ML, backend, platform)",
+      "covers": [],
+      "coversPatterns": [],
+      "variants": [
+        {
+          "maxWords": 152,
+          "text": "An agent carrying months of history has to answer from it without re-reading it. I built\nthe hybrid retriever at OpenMax: BM25 and dense embeddings fused by Reciprocal Rank Fusion\nover ranks rather than scores, because BM25 is unbounded and cosine is not, so summing\nthem needs a calibration that breaks the moment the corpus shifts; a cross-encoder rerank\ncapped by passage count; and a one-second fail-open timeout so retrieval never blocks a\nturn. The part I would defend hardest is the measurement. I built an offline evaluation\nharness with an 18-case graded golden set before tuning anything, and it runs as a\nregression gate at nDCG@k 0.95 and injected-F1 0.85, exiting non-zero below baseline.\nSeparately, the LongMemEval harness I built showed a 75% retention baseline with the\nweakest category at 20%, which I traced to upstream distillation rather than answer-time\nretrieval. The fix was not in the component I had built."
+        }
+      ],
+      "slots": [],
+      "hasSlots": false
+    },
+    {
+      "id": "a-c2",
+      "section": "C2",
+      "title": "Systems programming in C (systems, embedded, performance)",
+      "covers": [],
+      "coversPatterns": [],
+      "variants": [
+        {
+          "maxWords": 146,
+          "text": "In CMU's 18-213 I wrote a 64-bit memory allocator: segregated explicit free lists,\nfooterless allocated blocks, two-word mini-blocks, and better-fit search (best-fit within\nthe first viable size class, first-fit beyond), reaching 11,031 KOPS at 74.1%\nutilization. Footerless blocks are what actually buy the utilization; the trade is that\ncoalescing has to read the previous block's allocation bit out of the header. I also\nwrote a multithreaded HTTP proxy with detached thread-per-connection handling and a\nmutex-guarded LRU object cache, heap-allocating each connection's descriptor to close the\nclassic accept-loop race; the cache copies objects out while holding the lock so the\ncaller never sees a dangling pointer. I know its weaknesses too: a single global cache\nmutex rather than a reader/writer lock, and a dedup scan that releases the lock before\ninsert, so two threads can insert the same URL. Naming those is part of understanding the\ndesign."
+        }
+      ],
+      "slots": [],
+      "hasSlots": false
+    },
+    {
+      "id": "a-c3",
+      "section": "C3",
+      "title": "Water-leak forecasting, time-series ML (data science, analytics)",
+      "covers": [],
+      "coversPatterns": [],
+      "variants": [
+        {
+          "maxWords": 125,
+          "text": "SmartMeter is a latch-on water-meter system I co-authored and published at MLNLP '22\n(ACM). A Cloud Vision dial reader supplies readings from an unmodified analog meter, and\na seasonal ARIMA forecaster learns the household's daily water-use rhythm from 15-minute\nreadings: ADF stationarity test, a 96-step daily seasonal period, SARIMAX(2,0,1)(1,0,1,96)\nfitted with pmdarima's auto_arima and statsmodels. I validated a held-out one-day forecast\nby RMSE against a seasonal-naive baseline, with a non-seasonal ARIMA(4,0,4) notebook as\nthe ablation showing why the seasonal term is needed. Consumption that diverges from its\nown forecast flags a candidate leak. The honest limits: the dataset is about a week of\nsparse readings and the notebooks are a proof of concept, so the paper's evaluation is\nqualitative and I claim no accuracy number."
+        }
+      ],
+      "slots": [],
+      "hasSlots": false
+    },
+    {
+      "id": "a-d",
+      "section": "D",
+      "title": "What motivates you / what excites you about your next internship",
+      "covers": [
+        "What motivates you?",
+        "What are you most excited to work on?",
+        "What do you look for in a job / team?"
+      ],
+      "coversPatterns": [
+        "What|motivates",
+        "What|most|excited|work",
+        "What|look|team"
+      ],
+      "variants": [
+        {
+          "maxWords": 145,
+          "text": "you look for in a job / team?\"\n\nWhat motivates me is work where the result can be measured and the measurement can be\ntrusted. The memory allocator I wrote hit 11,031 KOPS at 74.1% utilization, and the\nnumber told me exactly which side of the throughput-versus-utilization trade I had\noptimized. The retrieval pipeline I built at OpenMax is gated on a graded golden set\nrather than on whether search \"seemed fine.\" When the memory benchmark I built reported a\n20% category, the interesting part was not the score but tracing it two stages upstream\nto distillation. I look for a team that ships to real users, reviews code seriously, and\ntreats a surprising number as something to explain rather than record. [[SLOT: one\nsentence on what in the JD's description of the work fits that — e.g. the team's\nsystem, scale, or measurement problem.]]"
+        }
+      ],
+      "slots": [
+        {
+          "name": "slot1",
+          "instruction": "one\nsentence on what in the JD's description of the work fits that — e.g. the team's\nsystem, scale, or measurement problem.",
+          "from": "jd",
+          "required": true
+        }
+      ],
+      "hasSlots": true
+    },
+    {
+      "id": "a-e",
+      "section": "E",
+      "title": "Career goals / where you see yourself",
+      "covers": [
+        "Long-term career goals",
+        "Where do you see yourself in 3–5 years",
+        "How does this internship fit your goals?"
+      ],
+      "coversPatterns": [
+        "Long|term|career|goals",
+        "Where|yourself|years",
+        "does|this|internship|your|goals"
+      ],
+      "variants": [
+        {
+          "maxWords": 134,
+          "text": "does this internship fit your goals?\"\n\nI want to build the infrastructure that AI agents run on: the memory, retrieval,\nevaluation, and communication layers that decide whether an agent is reliable in\nproduction. That is the work I did at OpenMax, contributing to Zylos, an open-source\nagent-infrastructure platform, across roughly 200 commits: the six-channel messaging\ngateway, the hybrid retrieval pipeline, and the LongMemEval evaluation harness. Over the\nnext few years I want to go deeper on the systems side of that: performance, concurrency,\nand measurement, building on the 18-213 allocator and proxy work and the parallel\nalgorithms and generative-AI coursework I am taking now. An internship on a team that\nships production software with real users is the most direct way to get there. [[SLOT:\noptional sentence tying the company's product to that path.]]"
+        }
+      ],
+      "slots": [
+        {
+          "name": "slot1",
+          "instruction": "optional sentence tying the company's product to that path.",
+          "from": "jd",
+          "required": true
+        }
+      ],
+      "hasSlots": true
+    },
+    {
+      "id": "a-f",
+      "section": "F",
+      "title": "Teamwork / leadership / handling competing priorities",
+      "covers": [
+        "Describe a leadership experience",
+        "A time you worked on a team",
+        "Managing competing priorities",
+        "Leadership principle you identify with",
+        "A time you showed humility / owned a mistake"
+      ],
+      "coversPatterns": [
+        "Describe|leadership|experience",
+        "time|worked|team",
+        "Managing|competing|priorities",
+        "Leadership|principle|identify|with",
+        "time|showed|humility|owned|mistake"
+      ],
+      "variants": [
+        {
+          "maxWords": 148,
+          "text": "competing priorities\", \"Leadership principle you identify with\", \"A time you showed\nhumility / owned a mistake\".\n\nAt OpenMax in early June 2026 I was carrying two things at once: client-driven demands for\nmessaging-channel capabilities on the agent product, and the memory-evaluation research I\nwas also responsible for. I set an explicit rule, client-facing work first, shipped the\ncore channel functionality on time, and kept the research moving rather than dropping it;\nthat research became the mem-eval harness. Every channel component then went through the\nteam's production-readiness review, which is where I learned the security and\nresource-lifecycle bar for shipping, and I presented architecture plans to the team in\nChinese for review. On humility: when I describe my own HTTP proxy I name its real\nweaknesses, an unbounded header buffer, a cache dedup race, a single global mutex, because\nknowing where your design fails is part of owning it."
+        }
+      ],
+      "slots": [],
+      "hasSlots": false
+    },
+    {
+      "id": "a-g",
+      "section": "G",
+      "title": "What you learned outside the classroom / workplace",
+      "covers": [
+        "What have you learned outside of school or work?",
+        "Tell us something not on your résumé",
+        "How do you learn new things?"
+      ],
+      "coversPatterns": [
+        "What|have|learned|outside|school|work",
+        "Tell|something|your",
+        "learn|things"
+      ],
+      "variants": [
+        {
+          "maxWords": 143,
+          "text": "on your résumé\", \"How do you learn new things?\"\n\nTwo things from the summer in Shenzhen. First, working in a second language changed how I\nexplain technical findings: presenting architecture plans to the team in Chinese meant a\nvague explanation did not survive translation, so I learned to state the mechanism\nprecisely, distillation, not retrieval, before anyone asked. Second, working fast with AI\ntools taught me a specific warning sign: when an explanation comes back full of vocabulary\nI do not know, that is not a vocabulary problem, it is a signal that I have dropped out of\nthe loop and can no longer judge whether the output is correct. I built a small tool that\nforces every explanation to start from introductory definitions and build up, and my rate\nof actually learning from the AI, rather than just accepting it, went up."
+        }
+      ],
+      "slots": [],
+      "hasSlots": false
+    },
+    {
+      "id": "a-h",
+      "section": "H",
+      "title": "Additional information / anything else we should know",
+      "covers": [
+        "Anything else you'd like us to know?",
+        "Additional information",
+        "Comments"
+      ],
+      "coversPatterns": [
+        "Anything|else|like|know",
+        "Additional|information",
+        "Comments"
+      ],
+      "variants": [
+        {
+          "maxWords": 74,
+          "text": "\"Comments\".\n\nI am a US citizen (no sponsorship needed, ITAR-eligible), a junior at Carnegie Mellon's\nSchool of Computer Science in the B.S. Artificial Intelligence program, expected May 2028,\navailable full time and in person for Summer 2027 and open to any US location. I\nco-authored a published paper at MLNLP '22 (ACM) on computer-vision water metering with\nARIMA forecasting, and earned USACO Silver in 2020. My portfolio is at felixlin.dev and\ncode at github.com/FelixLin6."
+        }
+      ],
+      "slots": [],
+      "hasSlots": false
+    }
+  ],
+  "alwaysPark": [
+    {
+      "pattern": "years|months of experience",
+      "reason": "no durations for tools/languages are on file (SpaceX incident)"
+    },
+    {
+      "pattern": "date of birth|birthdate|dob",
+      "reason": "never on file"
+    },
+    {
+      "pattern": "reference",
+      "reason": "no professional references on file"
+    },
+    {
+      "pattern": "salary history|current salary",
+      "reason": "no employment salary history on file"
+    },
+    {
+      "pattern": "high school name",
+      "reason": "not on file"
+    },
+    {
+      "pattern": "sat score",
+      "reason": "never taken; never convert or estimate"
+    }
+  ]
+}

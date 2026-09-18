@@ -77,11 +77,10 @@ Rules, each from a recorded failure:
   the engine owns, not a tab that stole a shared pointer.
 - Close by handle, by owner, only (F4).
 
-**Caveat, stated plainly:** `connectOverCDP` + `newContext()` on a real Chrome
-creates a browser-level incognito-ish context. Chrome for Testing supports
-this, but it is worth confirming on the exact 149 build in the profile before
-Phase 2 — the smoke test (§9) asserts exactly this, which is why it creates
-**two** contexts and checks their isolation.
+**Caveat, now resolved:** `connectOverCDP` + `newContext()` on a real Chrome
+creates a browser-level incognito-ish context. This is **confirmed on the exact
+build the pipeline uses** — see §4a. Isolation holds, so the
+`--user-data-dir-per-applier` fallback is not needed.
 
 ## 4. storageState
 
@@ -101,6 +100,60 @@ engine/state/storage/<tenant-slug>.json     # e.g. workday-acme-wd1.json
   only by the engine, never by an adapter (`interfaces.md` §2).
 - Staleness: a loaded state that lands on a login page is discarded and the
   login is redriven; the engine does not trust the file over the page.
+
+## 4a. GATE 0 — the storageState-across-death claim, MEASURED
+
+The reviewer's first critique item (C1) was that §4 and §5 above are worthless
+if `storageState` does not actually survive a browser death **on the build the
+pipeline runs**, and that this must be proved before any more engine code is
+written. It was, and it does.
+
+**Test:** `engine/test/gate0-storagestate.test.js`. It does not simulate a
+death. It establishes a real session (persistent cookie + `localStorage`) on a
+real HTTP origin, saves `storageState`, then `SIGKILL`s the Chrome process
+**with the page and context still live**, waits for the process to be gone and
+for the Playwright handle to report `disconnected`, and then restores into a
+**brand-new browser on a different port with a different temp profile** —
+nothing carries over except the JSON file.
+
+**Verdict: PASS**, on `Chrome/149.0.7827.55` (Playwright cache
+`chromium-1228`, `chrome-mac-arm64` — the binary
+`skill/scripts/pipeline-browser.sh` launches).
+
+| Claim | Result |
+|---|---|
+| Persistent cookies survive the death | **yes** |
+| The restored context actually **sends** the cookie on the wire (not merely holds it in a file) | **yes** — asserted by echoing `Cookie` back from the test origin |
+| `localStorage` survives the death | **yes**, all keys |
+| Restore works into a *different* browser, port, and profile | **yes** |
+| Context isolation survives on the restored browser (a sibling context does **not** inherit the session) | **yes** |
+| A restored context can **re-save** state forward (a chain of deaths does not degrade) | **yes** |
+| `sessionStorage` survives | **no** — and it is not expected to |
+
+Consequences, each load-bearing for a design decision above:
+
+1. **§5's re-attach story stands.** After a browser death the engine rebuilds
+   contexts from saved state rather than re-driving logins or restarting the
+   run. The `--user-data-dir-per-applier` fallback is **not required** and is
+   not implemented — see below for what would have been needed if it were.
+2. **`sessionStorage` is off-limits to adapters.** No adapter may key flow
+   state on it, and no step may be recognized by it, because the one thing
+   Gate 0 proves does *not* survive is exactly that. Adapters carry flow state
+   in the event stream instead.
+3. **The build is pinned to the claim.** The test asserts the build string, so
+   a Chrome upgrade that breaks this surfaces as a Gate 0 failure rather than
+   as a mysterious re-login loop on a production day. **Gate 0 must be re-run
+   after any Chrome-for-Testing upgrade** — that is now a release rule, not a
+   suggestion.
+
+**The fallback we did not need,** recorded so the option is not lost: had
+`newContext()` isolation failed on this build, each applier would have needed
+its own Chrome process with its own `--user-data-dir`, and the driver would
+have become one-CDP-endpoint-per-applier with ports allocated by the
+orchestrator. That costs ~5 Chrome processes of RAM, makes storageState
+redundant (the profile *is* the state), and makes a wedged applier cheap to
+kill in isolation. It is strictly more robust and strictly more expensive; if
+a future Chrome breaks context isolation, this is the move.
 
 ## 5. Supervisor
 
@@ -122,6 +175,34 @@ The critical property: **the event stream is the resume point.** Because every
 step emits before and after, a restarted engine knows precisely which jobs
 were submitted (never re-submit) and which were mid-flight (safe to retry).
 Today that knowledge only exists in a markdown file written after the fact.
+
+### 5a. Resume means RE-VERIFY, not resume (C2)
+
+The reviewer's second critique: a resumed engine that trusts its own
+pre-crash `field_filled` events is trusting a claim about a *browser that no
+longer exists*. The form it re-attaches to may have been reloaded, may have
+re-imported a cached profile (F16), or may never have received the value at
+all if the crash landed between the fill and the read-back.
+
+So the resume path is deliberately not an optimization:
+
+```
+re-attach
+  → rebuild context from storageState
+  → navigate to the step recorded in the stream
+  → RE-RUN DISCOVERY from scratch on the form root
+  → every field_filled recorded before the crash is UNVERIFIED:
+      re-read it; if it matches intent, emit field_filled again
+      (strategy:"reverify"); if it does not, re-fill and re-read
+  → forbidden-value scan over the whole form
+  → only now may the step advance
+```
+
+Nothing is skipped because "we already did it". The pre-crash events are used
+for exactly one thing — knowing which jobs are already `submitted` so they are
+never re-submitted — and for nothing else. A `field_filled` is evidence about
+a moment, not a standing guarantee about a form, and the same reasoning that
+makes C3 (re-check uploads after every advance) correct makes this correct.
 
 ## 6. Stop path
 
@@ -176,13 +257,20 @@ Today's cost driver is one CLI spawn per action plus a model turn per
 decision. The targets below are per application, counted as `seq` deltas
 between `application_started` and `application_ended`:
 
+**C7: only iCIMS keeps a line-item target.** The reviewer's objection to the
+original table was that publishing `< 60` for Workday and `< 20` for
+Greenhouse/Lever dressed estimates in the same typography as the one measured
+number, and a target nobody measured is a target nobody can be held to. Those
+rows now read **TBD from shadow** and are filled in from Gate 1 data, not from
+this document.
+
 | ATS | Target | Today (measured / estimated) | Why the target is reachable |
 |---|---|---|---|
-| **iCIMS** | **< 40** | **~470 calls, measured** (Cole Engineering fill alone, 2026-09-17) | See breakdown below |
-| Workday | < 60 | est. 150-250 (multi-step wizard, account gate, dates) | Dates drop from ~12 per-digit `press` calls to 3 `fill` calls (F5); `storageState` removes per-tenant re-login |
-| Greenhouse | < 20 | ~25-40 with the fill script, more when a pick misses | Single page, one discovery pass, one review, one submit |
-| Lever | < 20 | similar | same |
-| Ashby | < 25 | similar + re-upload churn | Named upload target kills the `nth=0` autofill-input miss (F6) |
+| **iCIMS** | **< 40** | **~470 calls, measured** (Cole Engineering fill alone, 2026-09-17) | See breakdown below — the only row with a measured baseline on both sides |
+| Workday | **TBD from shadow** | est. 150-250 (multi-step wizard, account gate, dates) | Dates drop from ~12 per-digit `press` calls to 3 `fill` calls (F5); `storageState` removes per-tenant re-login. Magnitude unmeasured. |
+| Greenhouse | **TBD from shadow** | ~25-40 with the fill script | Single page, one discovery pass, one review, one submit |
+| Lever | **TBD from shadow** | similar | same |
+| Ashby | **TBD from shadow** | similar + re-upload churn | Named upload target kills the `nth=0` autofill-input miss (F6) |
 
 **Where iCIMS's ~470 → <40 actually comes from.** This is the headline claim
 of the rebuild, so it should be auditable rather than asserted:
