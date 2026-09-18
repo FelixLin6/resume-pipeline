@@ -31,6 +31,15 @@ stack. The short list, with the rule each one forces:
 | F12 | Chrome 149 for Testing binds DevTools to **`::1` only** even with `--remote-debugging-address=127.0.0.1`; agent-browser's v4 connect silently fell back to launching isolated browsers (`pipeline-browser.sh:39-57`) | The attach layer resolves the endpoint by **probing both `127.0.0.1` and `[::1]`** and uses the one that answers. No shim required; no silent fallback permitted. |
 | F13 | `pkill -f <pattern>` killed the caller's own shell mid-teardown (exit 144, 2026-09-02); a bare "Chrome" pattern could hit Felix's real browser | Stop path is **kill-by-pidfile with a cmdline check**, never a pattern sweep. See `architecture.md` §6. |
 | F14 | Wedged Chrome (alive, ~100% CPU, CDP dead) re-wedged on restart via `exit_type=Crashed` session restore (2026-09-08, 3×) | Supervisor distinguishes *process dead* from *CDP dead*, and **never restarts the run** — it re-attaches contexts from saved `storageState`. |
+| F15 | **Résumé-parse autofill overwrote already-filled contact fields** — Rippling set email to the forbidden CMU address, blanked phone, invented "current company"; same on Cole iCIMS, SimVentions, Cotiviti, Jobvite, Eightfold (2026-09-16/17, ≥8 tenants) | Upload is a **discovery barrier**: the engine re-runs discovery and re-verifies every already-filled field *after* every upload. `post_upload_reverify` is a mandatory engine step, not adapter discretion. §5.5. |
+| F16 | **Eightfold/Taleo stale-profile trap** — forms pre-load cached data from *unrelated earlier* applications: wrong résumé PDF silently pre-attached, email set to the forbidden CMU address; re-imports on every fresh visit even after correction (3× in one night, 2026-09-12) | `constraints.forbiddenValues` is extended to cover **forbidden identities** (the CMU address) and is checked on **read-back as well as write**. A forbidden value found *already in the form* is `field_skipped{reason:"forbidden_value"}` + mandatory correction, then re-verify. |
+| F17 | **Cross-applier contamination**: applier2's tab pointer landed on applier1's live Tesla tab and an `upload` attached a **Cone Health PDF to a live Tesla application** (2026-09-12) | Context-per-applier (structural). Additionally, `upload_verified` asserts `stamped_job_key` matches the **current** `jobKey` — a mismatched artifact is a hard park, so even a hypothetical cross-wire cannot submit. |
+| F18 | **Avature attaches one résumé per *account*, not per application** — Intuit AI Scientist went out with the iOS posting's PDF (2026-09-15) | Same `stamped_job_key` read-back assert (F17), which catches account-scoped artifacts too. This is why the stamp is in **PDF metadata**, not only the filename. |
+| F19 | `ats-fill.js` **upload silently failed on 5 forms in one day** (EQT, Clockwork, Kitware, Nanopath, Collier — 2026-09-17), all redone by hand | `verifyUpload` is mandatory and its result gates advance. An unverified upload can never be followed by a submit. |
+| F20 | **Cyvl submitted with a term mismatch** (form said Summer 2027, joblist said 2026) on a one-shot Ashby (2026-09-15) | Form-vs-joblist contradiction check is an **engine pre-submit gate** (`review_diff` severity `fail`), not an applier's reading comprehension. |
+| F21 | **Invisible-size hCaptcha over SUBMIT** — a click meant to park on the widget passed through and filed an application unreviewed (Kitware, 2026-09-17) | The engine never clicks a captcha widget, and `submit()` is the only code path that may click a submit-labelled control — reachable only after a passing review diff. |
+| F22 | A sweep agent pasted a freshly created iCIMS **password into `STAGED.md` and pushed it** (2026-09-17) | Events are schema-validated and there is **no event field that can carry a credential**. `secrets` values never enter `AdapterContext.log`, and `field_filled` carries a hash + masked preview only (Q5). |
+| F23 | **iCIMS guest-apply hCaptcha fires *before* the form loads**, so an assist slot buys zero filled fields; it gated 8 postings across 6 tenants in one day. But on 2026-09-17, **3 of 4 gates did not re-fire on a second visit** — it is session/reputation-dependent, not a tenant setting | Wall memory is per-tenant with an **occurrence counter**, and the retry policy is "one fresh-context retry, then park; third occurrence for a tenant skips the retry" — which the 3-of-4 observation directly justifies. |
 
 ---
 
@@ -406,8 +415,14 @@ interface Profile {
     neverInvent: true;
     gpa: { value: number; scale: number;
            bandRule: 'nearest-band-never-round-up' };
-    forbiddenValues: string[];     // the fabricated-number blocklist
+    /** Fabricated-number blocklist AND forbidden identities (the CMU
+     *  address). Checked on write and on read-back (F16). */
+    forbiddenValues: string[];
+    forbiddenIdentities: string[]; // ["felixl@andrew.cmu.edu"]
     onePacketRule: true;           // form values must match the attached PDF
+    /** No years/months of experience for any language or tool — none are
+     *  on file. A form demanding one parks. */
+    noDurationsForTools: true;
   };
 }
 
@@ -686,9 +701,38 @@ Given a discovered control and a `FieldBinding`:
    d. No match → `field_skipped{reason:"option_not_found", candidates_seen}`;
       if `required`, park. **Never pick "the closest-looking option".**
 4. **Forbidden values** (`constraints.forbiddenValues`) are checked before
-   every fill; a hit is `field_skipped{reason:"forbidden_value"}` and a hard
-   park. This makes the fabricated-number blocklist mechanical rather than a
-   prompt instruction.
+   every fill **and on every read-back**; a hit is
+   `field_skipped{reason:"forbidden_value"}`. A forbidden value we were about
+   to write is a hard park. A forbidden value *the form already contains*
+   (F16 — the stale-profile trap) is a **mandatory correction**, followed by
+   re-verification. This makes the fabricated-number blocklist and the
+   never-use-the-CMU-address rule mechanical rather than prompt instructions.
+
+### 5.5 Upload is a discovery barrier (F15, F16, F19)
+
+The single most expensive recurring data error on this stack is a résumé
+upload whose parser rewrites fields that were already correct. The engine
+therefore treats every upload as a barrier:
+
+```
+fill(pre-upload fields)
+  → upload(target, artifact)
+  → verifyUpload()                      ← must return attached:true, or park
+  → assert artifact.stampedJobKey === ctx.jobKey     ← F17, F18
+  → re-run discovery on the form root   ← the parser may have added fields
+  → re-read EVERY already-filled field  ← emit field_filled again on change
+  → forbidden-value scan over the whole form         ← F16
+  → only now may the step advance
+```
+
+`post_upload_reverify` emits a `review_diff`-shaped event scoped to the step,
+so a parser overwrite is visible in the stream as a concrete before/after
+rather than being discovered by a human reading the submitted application.
+
+This is also where the tool-call budget is *spent well*: a second discovery
+pass costs one action in Playwright (`frame.locator(...).all()`), whereas on
+the current stack a re-snapshot is another CLI spawn plus a model turn — which
+is exactly why the current stack skips it and keeps getting bitten.
 
 ---
 
