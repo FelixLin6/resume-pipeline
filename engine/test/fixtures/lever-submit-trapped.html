@@ -1,0 +1,21 @@
+<!doctype html>
+<meta charset="utf-8"><title>Software Developer Internship</title>
+<!-- THE KITWARE TRAP, 2026-09-17, reproduced.
+     A click aimed at SUBMIT APPLICATION lands on an hCaptcha enclave iframe
+     that covers the entire viewport at opacity 0. `isVisible()` on the button
+     returns TRUE and the button looks perfectly clickable — which is exactly
+     why a visibility check would have missed this and a hit test does not.
+     Recon on the live tenant found these enclave iframes at 1350x900. -->
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 16px; }
+  #captcha-enclave {
+    position: fixed; inset: 0; width: 100vw; height: 100vh;
+    border: 0; opacity: 0; z-index: 9999;
+  }
+</style>
+<h2>Submit your application</h2>
+<input name="name" value="Felix Lin">
+<input type="hidden" id="hcaptchaResponseInput" value="">
+<button id="btn-submit">SUBMIT APPLICATION</button>
+<iframe id="captcha-enclave" title="Widget containing checkbox for hCaptcha security challenge"
+        src="/hcaptcha.html#frame=enclave"></iframe>

@@ -1,0 +1,14 @@
+<!doctype html>
+<meta charset="utf-8"><title>Software Developer Internship</title>
+<!-- The same page with the enclave parked out of the way: the widget is still
+     in the DOM (it always is), but a click on the button reaches the button. -->
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 16px; }
+  #captcha-enclave { position: fixed; top: 0; left: 0; width: 300px; height: 0; border: 0; }
+</style>
+<h2>Submit your application</h2>
+<input name="name" value="Felix Lin">
+<input type="hidden" id="hcaptchaResponseInput" value="">
+<button id="btn-submit" style="margin-top:300px">SUBMIT APPLICATION</button>
+<iframe id="captcha-enclave" title="Widget containing checkbox for hCaptcha security challenge"
+        src="/hcaptcha.html#frame=checkbox-invisible"></iframe>

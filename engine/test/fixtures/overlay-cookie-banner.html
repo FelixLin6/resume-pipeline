@@ -1,0 +1,14 @@
+<!doctype html>
+<meta charset="utf-8"><title>Apply</title>
+<!-- An obstruction that is NOT a captcha: a consent banner covering the submit
+     button. The engine must still refuse to click through it, but must NOT
+     record a wall — a tenant whose cookie banner got in the way has not
+     challenged us, and filing it as one would corrupt the retry policy for a
+     tenant that never gated anything. -->
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 16px; }
+  #consent { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 9999; }
+</style>
+<h2>Submit your application</h2>
+<button id="btn-submit">SUBMIT APPLICATION</button>
+<div id="consent" class="cookie-banner">We use cookies.</div>

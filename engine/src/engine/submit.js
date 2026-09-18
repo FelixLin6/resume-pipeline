@@ -12,43 +12,61 @@
 // flag, no override parameter, and no caller-supplied bypass: "submit anyway"
 // is not spellable in this API.
 
+import { evaluateGate, lastMutatingSeq as gate2LastMutatingSeq, Gate2Violation } from './gate2.js';
+import { assertSubmitClickable } from './overlay.js';
+
 export class ReviewGateError extends Error {}
 export class SubmitBudgetError extends Error {}
 
 /**
  * Assert the review gate. Called by submit() before anything is clicked.
  *
+ * The rule itself lives in gate2.js, because Phase 3 needs the identical rule
+ * in two places — here at runtime, and as a post-hoc audit over a finished
+ * stream that a metric report must run before it may call a day clean. Two
+ * copies of a safety rule is one copy too many.
+ *
  * @param {object[]} events   the emitted event list for THIS job, in order
  * @param {number} lastMutatingSeq  seq of the last event that changed the form
  */
 export function assertReviewGate(events, lastMutatingSeq) {
-  const diffs = events.filter((e) => e.type === 'review_diff');
-  const rd = diffs.at(-1);
-  if (!rd) throw new ReviewGateError('refusing to submit: no review diff was produced');
-  if (rd.data.verdict !== 'pass') {
-    throw new ReviewGateError(
-      `refusing to submit: review diff verdict is "${rd.data.verdict}" ` +
-      `(${rd.data.mismatches?.filter((m) => m.severity === 'fail').length ?? 0} failing mismatch(es))`
-    );
+  const v = evaluateGate(events);
+
+  if (!v.ok) {
+    switch (v.reason) {
+      case 'no-review-diff':
+        throw new ReviewGateError('refusing to submit: no review diff was produced');
+      case 'failing-review-diff':
+        throw new ReviewGateError(
+          `refusing to submit: review diff verdict is "${v.detail.verdict}" ` +
+          `(${v.detail.failing_mismatches} failing mismatch(es))`);
+      case 'stale-review-diff':
+        throw new ReviewGateError(
+          `refusing to submit: the review diff (seq ${v.detail.diff_seq}) is stale — ` +
+          `the form changed at seq ${v.detail.mutated_at}`);
+      case 'unresolved-barrier-failure':
+        throw new ReviewGateError(
+          `refusing to submit: a post-upload barrier diff at seq ${v.detail.barrier_seq} FAILED ` +
+          `after the review diff at seq ${v.detail.diff_seq}. A barrier emits no mutating event, ` +
+          'so staleness alone would have let this through — the parser overwrite is unresolved.');
+      /* c8 ignore next 2 */
+      default:
+        throw new ReviewGateError(`refusing to submit: ${v.reason}`);
+    }
   }
-  // A diff that passed BEFORE the last fill is not evidence about the form we
-  // are about to submit.
-  if (typeof lastMutatingSeq === 'number' && rd.seq < lastMutatingSeq) {
+
+  // An explicitly supplied lastMutatingSeq that is newer than the stream's own
+  // still invalidates the diff.
+  if (typeof lastMutatingSeq === 'number' && v.diff.seq < lastMutatingSeq) {
     throw new ReviewGateError(
-      `refusing to submit: the review diff (seq ${rd.seq}) is stale — ` +
-      `the form changed at seq ${lastMutatingSeq}`
-    );
+      `refusing to submit: the review diff (seq ${v.diff.seq}) is stale — ` +
+      `the form changed at seq ${lastMutatingSeq}`);
   }
-  return rd;
+  return v.diff;
 }
 
-/** Events that change what would be submitted. */
-const MUTATING = new Set(['field_filled', 'upload_verified', 'page_advanced']);
-
-export function lastMutatingSeq(events) {
-  const m = events.filter((e) => MUTATING.has(e.type));
-  return m.length ? m.at(-1).seq : null;
-}
+export { Gate2Violation };
+export const lastMutatingSeq = gate2LastMutatingSeq;
 
 /**
  * Count prior submit attempts for this (tenant, job) from the stream.
@@ -74,10 +92,36 @@ export function assertSubmitBudget(events, maxAttempts) {
  */
 export async function submit(adapter, ctx, {
   events, page, stream, screenshotPath = null, confirmTimeoutMs = 45000,
+  wallMemory = null,
 }) {
   const emitted = stream.events.filter((e) => e.job_key === ctx.jobKey);
   assertReviewGate(emitted, lastMutatingSeq(emitted));
   assertSubmitBudget(emitted, adapter.quirks?.maxSubmitAttempts ?? 1);
+
+  // F21 / Kitware: the diff having passed says the FORM is right. It says
+  // nothing about whether the click will reach the button. An adapter that
+  // declares its submit control gets a hit test before anything is clicked;
+  // one that does not is recorded as unguarded, so the gap is visible in the
+  // stream rather than invisible in the code.
+  const spec = adapter.quirks?.submitControl;
+  if (spec?.selector) {
+    await assertSubmitClickable({
+      root: ctx.frame ?? page,
+      events: stream,
+      submitSelector: spec.selector,
+      captcha: {
+        wrapperSelectors: spec.captchaWrappers ?? [],
+        responseSelector: spec.captchaResponse ?? null,
+      },
+      wallMemory,
+      tenant: ctx.tenant ?? null,
+    });
+  } else {
+    stream.emit('adapter_note', {
+      msg: 'submit click-target NOT verified: this adapter declares no submitControl selector',
+      extra: { ats: adapter.id },
+    });
+  }
 
   // The adapter's advance() to the submit step is what clicks. The engine
   // holds the gate; the adapter holds the selector.
