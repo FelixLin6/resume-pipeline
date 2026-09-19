@@ -90,6 +90,18 @@ export async function startScratchChrome({ port, timeoutMs = 20000 } = {}) {
     '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-background-networking', '--disable-sync',
     '--no-sandbox',
+    // Without this, CfT 149's baked-in field-trial config can leave headless
+    // pages producing NO frames at all: rAF never ticks, so every Playwright
+    // actionability wait that needs a frame (click/check "stable") hangs to
+    // its timeout while fill()/evaluate()/timers all still work. Bisected
+    // 2026-09-18 against Playwright's own launch switches; this single flag
+    // is the one that revives frame production.
+    '--disable-field-trial-config',
+    // Playwright's standard anti-throttling set, so a backgrounded target
+    // never has its timers or rendering deprioritized under parallel load.
+    '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
   ], { stdio: 'ignore', detached: false });
 
   writePidfile(pidfile, child.pid);
