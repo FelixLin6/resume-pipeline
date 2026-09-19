@@ -72,10 +72,12 @@ test('C4: the third-strike skip DECAYS after 14 days', () => {
 
 test('decay is measured in CALENDAR days, not floating hours', () => {
   // A wall seen at 00:05 must not expire half a day before one seen at 23:55
-  // on the same date. Both are "that day".
-  const m = new WallMemory({ now: at('2026-09-17T23:55:00Z') });
+  // on the same date. Both are "that day" — and "day" means PIPELINE day
+  // (America/Los_Angeles), so the edge instants here are the PT day edges:
+  // 23:55 PDT on 09-17 and 00:05 PDT on 10-01, fourteen pipeline days apart.
+  const m = new WallMemory({ now: at('2026-09-18T06:55:00Z') });
   for (let i = 0; i < 3; i++) m.record(T, 'hcaptcha', 'guest-apply');
-  m.now = at('2026-10-01T00:05:00Z');
+  m.now = at('2026-10-01T07:05:00Z');
   assert.equal(m.ageDays(m.data[wallKey(T, 'hcaptcha', 'guest-apply')]), 14);
   assert.equal(m.decide(T, 'hcaptcha', 'guest-apply'), 'skip-retry-third-strike');
 });

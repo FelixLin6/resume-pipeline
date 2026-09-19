@@ -52,6 +52,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { EventStream } from '../src/events/emitter.js';
+import { pipelineDay } from '../src/util/day.js';
 import { attach, ApplierContexts } from '../src/driver/attach.js';
 import { startScratchChrome, freePort, findChromeBinary } from '../src/driver/scratch-chrome.js';
 import { resolveAdapter } from '../src/adapters/registry.js';
@@ -125,7 +126,7 @@ export function isAllowlisted(url, allowlist) {
  */
 export async function shadowRun({
   url, allowlist, jobKey, profile, bank,
-  maxSteps = 12, run = new Date().toISOString().slice(0, 10), applier = 0,
+  maxSteps = 12, run = pipelineDay(), applier = 0,
   eventsFile = null, wallsFile = null, ipClass = null, jobFacts = null,
   // Injectable ONLY so the hard stops can be exercised against a local fixture
   // by the test suite. The CLI never passes it, and passing one changes nothing
@@ -592,7 +593,7 @@ async function main(argv) {
   const { profile, bank } = convertAll();
 
   // C5: one probe per RUN, and offline is not an error.
-  const ip = args['no-ip-probe'] ? { ip_class: null } : await probeIpClass({ run: new Date().toISOString().slice(0, 10) });
+  const ip = args['no-ip-probe'] ? { ip_class: null } : await probeIpClass({ run: pipelineDay() });
 
   const jobKey = args['job-key'] ?? '00000000-0000-4000-8000-000000000000';
 

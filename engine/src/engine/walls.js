@@ -18,6 +18,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { pipelineDay } from '../util/day.js';
 
 export const THIRD_STRIKE = 3;
 export const DECAY_DAYS = 14;
@@ -75,7 +76,7 @@ export class WallMemory {
 
   record(tenant, wallClass, where) {
     const k = wallKey(tenant, wallClass, where);
-    const today = this.now().toISOString().slice(0, 10);
+    const today = pipelineDay(this.now());
     const cur = this.data[k] ?? {
       tenant, wall_class: wallClass, where: where ?? 'unknown',
       occurrences: 0, first_seen: today, last_seen: today, cleared_on_retry: 0,
@@ -162,7 +163,7 @@ export class WallMemory {
    *  calendar days makes the 14-day window mean 14 days. */
   ageDays(entry) {
     const day = (d) => Math.floor(Date.parse(`${String(d).slice(0, 10)}T00:00:00Z`) / 86400000);
-    return day(this.now().toISOString()) - day(entry.last_seen);
+    return day(pipelineDay(this.now())) - day(entry.last_seen);
   }
 
   /** Effective occurrence count, with decay applied (C4). */
