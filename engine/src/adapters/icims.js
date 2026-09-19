@@ -47,7 +47,16 @@ const icims = {
     // ?icims=1. Because it IS the same edge, a 403 on one is a 403 on the
     // other (JHU APL, 2026-09-11) — never treat the employer domain as an
     // alternate route around a block.
-    pathHints: [/[?&]icims=1/i, /\/jobs\/\d+\//],
+    // The path hint must be the iCIMS CANONICAL posting path — `/jobs/<id>/job`
+    // — not merely `/jobs/<id>/`. The looser form matched any employer site
+    // that numbers its postings under /jobs/: amazon.jobs/en/jobs/10552937/
+    // software-development-engineer-intern resolved to THIS adapter on the
+    // 2026-09-18 fleet run, which would have driven Amazon's form with iCIMS's
+    // step model. registry.js's own rule — "an adapter driving the wrong ATS
+    // would fill a form it does not understand, which is strictly worse than
+    // handing the page to a model that knows it is reading something
+    // unfamiliar" — is exactly what the loose hint defeated.
+    pathHints: [/[?&]icims=1/i, /\/jobs\/\d+\/job\b/],
   },
 
   tenantOf(url) { return `icims:${url.hostname.toLowerCase()}`; },
