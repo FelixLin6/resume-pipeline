@@ -120,6 +120,20 @@ export function planField(field, { binding = null, profile, bank }) {
     };
   }
 
+  // ---- uploads ----------------------------------------------------------
+  // BEFORE the value lookup, and the order is load-bearing (2026-09-18 fleet
+  // run). An upload target has no value in the bank BY DESIGN: the artifact is
+  // the day's tailored PDF, handed in by the caller, not a fact on file. With
+  // the file check sitting after the lookup, `upload.resume` resolved `absent`
+  // and every résumé field on every ATS skipped as `value_absent` — so the
+  // engine never attached a résumé to anything, and the skip reason blamed a
+  // missing bank entry for a field the bank is not supposed to hold. Same
+  // failure shape as the alwaysPark ordering note above: a key-first order
+  // reports the wrong cause and hides the real one.
+  if (field.control === 'file') {
+    return { action: 'upload', field_key: key, required };
+  }
+
   const resolved = resolveValue(key, { profile, bank });
   if (resolved.kind === 'absent') {
     return { action: 'skip', field_key: key, label: field.label, required, reason: 'value_absent' };
@@ -143,11 +157,6 @@ export function planField(field, { binding = null, profile, bank }) {
       slots: binding?.slots ?? {},
       text: ans.variants[0].text,
     };
-  }
-
-  // ---- uploads ----------------------------------------------------------
-  if (field.control === 'file') {
-    return { action: 'upload', field_key: key, required };
   }
 
   // ---- dates ------------------------------------------------------------

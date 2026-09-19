@@ -171,3 +171,30 @@ test('the typed bank refuses a contradiction rather than resolving it', () => {
   assert.equal(bank.facts['selfid.veteran'].value, 'not-a-protected-veteran');
   assert.equal(bank.facts['auth.sponsorship'].value, 'none-now-or-future');
 });
+
+test('a file control plans an UPLOAD even though the bank holds no value for it (2026-09-18)', () => {
+  // Greenhouse renders the résumé field as input#resume[type=file] labelled
+  // "Attach". Discovery reports control:'file' correctly; the bug was here.
+  // `upload.resume` has no bank entry BY DESIGN — the artifact is the day's
+  // tailored PDF, handed in by the caller — so a value-lookup-first order made
+  // every résumé field skip as `value_absent`, and the engine attached a
+  // résumé to nothing on any ATS.
+  const plan = planField(
+    { control: 'file', type: 'file', id: 'resume', label: 'Attach', required: true },
+    { ...ctx, binding: { key: 'upload.resume', required: true } },
+  );
+  assert.equal(plan.action, 'upload');
+  assert.equal(plan.field_key, 'upload.resume');
+  assert.equal(plan.required, true);
+});
+
+test('an upload target is still refused when the label hits an always-park rule', () => {
+  // Ordering guard: alwaysPark runs BEFORE the file check, so moving uploads
+  // earlier must not create a path that fills a parked question.
+  const parked = planField(
+    { control: 'file', type: 'file', id: 'dob_doc', label: 'Date of Birth', required: true },
+    { ...ctx },
+  );
+  assert.equal(parked.action, 'skip');
+  assert.equal(parked.reason, 'would_require_invention');
+});
