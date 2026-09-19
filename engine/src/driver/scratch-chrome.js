@@ -74,7 +74,7 @@ export async function freePort() {
   return assertScratchPort(port);
 }
 
-export async function startScratchChrome({ port, timeoutMs = 20000 } = {}) {
+export async function startScratchChrome({ port, timeoutMs = 20000, headed = false } = {}) {
   assertScratchPort(port);
   const bin = findChromeBinary();
   if (!bin) throw new Error('no Chrome for Testing binary found in the Playwright cache');
@@ -86,7 +86,11 @@ export async function startScratchChrome({ port, timeoutMs = 20000 } = {}) {
     `--remote-debugging-port=${port}`,
     '--remote-debugging-address=127.0.0.1',
     `--user-data-dir=${profile}`,
-    '--headless=new',
+    // `headed` exists for HUMAN VERIFICATION runs (Felix eyeballing staged
+    // shadow fills). It is still the scratch CfT binary on a scratch profile —
+    // the never-touch-other-Chrome rule is about binaries and profiles, not
+    // about visibility.
+    ...(headed ? [] : ['--headless=new']),
     '--no-first-run', '--no-default-browser-check',
     '--disable-extensions', '--disable-background-networking', '--disable-sync',
     '--no-sandbox',

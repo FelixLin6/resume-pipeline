@@ -128,6 +128,19 @@ export async function shadowRun({
   url, allowlist, jobKey, profile, bank,
   maxSteps = 12, run = pipelineDay(), applier = 0,
   eventsFile = null, wallsFile = null, ipClass = null, jobFacts = null,
+  // Human-verification staging: `externalPort` points at an already-running
+  // scratch CfT Chrome (started via startScratchChrome, possibly headed) so a
+  // batch of runs shares ONE window; `keepOpen` leaves the filled tab, its
+  // context, the browser and the stateDir alive at the stop point so a human
+  // can inspect the staged form (and submit it themselves if they choose);
+  // `sharedContext` runs the job as a TAB of the browser's default context
+  // instead of an isolated per-applier context — in a headed window, isolated
+  // contexts each open their own window, and a human verifying a batch wants
+  // one window with one tab per job (Felix, 2026-09-18). Staging-only: the
+  // production isolation model stays context-per-applier. None of these flags
+  // touch the four hard stops — a kept-open shadow still never submitted,
+  // attached, or authenticated anything.
+  externalPort = null, keepOpen = false, headed = false, sharedContext = false,
   // Injectable ONLY so the hard stops can be exercised against a local fixture
   // by the test suite. The CLI never passes it, and passing one changes nothing
   // about the refusals below — the allowlist and the submit stop do not consult
@@ -152,8 +165,8 @@ export async function shadowRun({
     throw new ShadowRefusal('no Chrome for Testing binary in the Playwright cache');
   }
 
-  const port = await freePort();                 // never 9222/9223
-  const chrome = await startScratchChrome({ port });
+  const port = externalPort ?? await freePort(); // never 9222/9223
+  const chrome = externalPort ? null : await startScratchChrome({ port, headed });
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'engine-shadow-'));
   let browser = null;
   let contexts = null;
@@ -165,9 +178,16 @@ export async function shadowRun({
 
   try {
     ({ browser } = await attach({ port, events: stream }));
-    contexts = new ApplierContexts({ browser, events: stream, stateDir });
-    const ctx = await contexts.create(applier, { tenant });
-    const page = await ctx.newPage();
+    let page;
+    if (sharedContext) {
+      const ctx = browser.contexts()[0];
+      if (!ctx) throw new ShadowRefusal('sharedContext: the attached browser exposes no default context');
+      page = await ctx.newPage();
+    } else {
+      contexts = new ApplierContexts({ browser, events: stream, stateDir });
+      const ctx = await contexts.create(applier, { tenant });
+      page = await ctx.newPage();
+    }
 
     // Mac finding D8: the stream carried no timing at all — duration_ms and
     // elapsed_ms were hardcoded 0, so Gate 1's own artifact could not answer
@@ -545,10 +565,20 @@ export async function shadowRun({
       model_turns: 0,
     });
   } finally {
-    if (contexts) await contexts.close(applier).catch(() => {});
-    if (browser) await browser.close().catch(() => {});
-    chrome.stop();
-    fs.rmSync(stateDir, { recursive: true, force: true });
+    if (keepOpen) {
+      // Staging: the tab stays where the run stopped. The CDP connection is
+      // NOT closed either — browser.close() on a connectOverCDP browser tears
+      // down the contexts it created, which would close the staged tab; the
+      // connection drops when the batch process exits, and Chrome keeps the
+      // context alive browser-side. The caller owns eventual cleanup (the
+      // chrome handle it started, and this stateDir, reported in summary).
+      summary.staged = { state_dir: stateDir, port };
+    } else {
+      if (contexts) await contexts.close(applier).catch(() => {});
+      if (browser) await browser.close().catch(() => {});
+      if (chrome) chrome.stop();
+      fs.rmSync(stateDir, { recursive: true, force: true });
+    }
     stream.close();
   }
 
