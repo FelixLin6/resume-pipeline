@@ -400,11 +400,25 @@ const greenhouse = {
     // renders as the filename plus an ✕ — there is no "Remove file" text on the
     // current UI, which is why the text match is on the FILENAME and the
     // remove-control check is a fallback.
-    const body = await root.locator('body').first().innerText().catch(() => '');
-    const shown = body.includes(wanted);
-    const hasRemove = (await root.locator(
-      `[aria-label*="Remove" i], button:has-text("Remove")`,
-    ).count()) > 0;
+    // The check SETTLES (advance.js Rule 2, applied to evidence). The chip is
+    // rendered by a React state update after the file dialog resolves, so a
+    // single immediate read is a race the page loses: on the 2026-09-18 fleet
+    // run every Greenhouse résumé reported attached:false ~12ms after
+    // setInputFiles, and F19 correctly refused to submit behind an unverified
+    // upload — for seven forms that had in fact taken the file. Polling is what
+    // makes "not attached" mean not attached, rather than "not attached yet".
+    const deadline = Date.now() + 8000;
+    let shown = false;
+    let hasRemove = false;
+    for (;;) {
+      const body = await root.locator('body').first().innerText().catch(() => '');
+      shown = body.includes(wanted);
+      hasRemove = (await root.locator(
+        `[aria-label*="Remove" i], button:has-text("Remove")`,
+      ).count()) > 0;
+      if (shown || hasRemove || Date.now() >= deadline) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
     return {
       observedName: shown ? wanted : null,
       observedBytes: null,
