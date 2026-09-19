@@ -40,11 +40,37 @@ import { auditStream } from '../engine/gate2.js';
  */
 export const BUDGETS = Object.freeze({
   icims: 40,
-  workday: null,      // TBD from shadow
-  greenhouse: null,   // TBD from shadow
-  lever: null,        // TBD from shadow
+  workday: null,      // TBD from shadow — nothing behind the account gate measured yet
+  // Filled in from Gate 1 shadow data (Mac, 2026-09-17, RESULTS.md), per the
+  // process this table prescribes: measured p50/p90 for GREENHOUSE was 32/49
+  // over 5 runs and for LEVER 23/73 over 4, all reaching the review page. The
+  // budget is set at the measured p90, rounded — a soft per-application
+  // ceiling the P50 clears comfortably, tripped only by an outlier worth
+  // reading. CAVEAT carried from the run report: these runs cover the
+  // automatable subset of each form (essays and unmatched controls sit in the
+  // skipped columns), so the numbers are honest costs for reaching review,
+  // not for a complete application.
+  greenhouse: 50,
+  lever: 75,
   ashby: null,        // TBD from shadow
   fallback: null,     // model-driven; measured, never budgeted
+});
+
+/**
+ * MEASURED data points, kept apart from BUDGETS on purpose: a measurement is
+ * a fact with a source; a budget is a policy. Each row cites the run that
+ * produced it.
+ */
+export const MEASURED = Object.freeze({
+  icims: {
+    // Droplet, 2026-09-17 (Gate 1 negative-fixture report): pre-gate only —
+    // nothing behind the email gate is reachable from that egress.
+    pregate_probe_calls: 6,
+    pregate_fill_calls: 11,
+    source: 'droplet shadow 2026-09-17; Mac p50 8 covers the same pre-gate stall (D3) and is NOT a full-application cost',
+  },
+  greenhouse: { p50: 32, p90: 49, n: 5, source: 'Mac shadow 2026-09-17 (RESULTS.md), runs reached review' },
+  lever: { p50: 23, p90: 73, n: 4, source: 'Mac shadow 2026-09-17 (RESULTS.md), runs reached review' },
 });
 
 /**
@@ -178,6 +204,14 @@ export function perApplication(events) {
       verified_by: submittedEv?.data?.verified_by ?? null,
       review_verdict: [...evs].reverse()
         .find((e) => e.type === 'review_diff' && (e.data.scope ?? 'review') === 'review')?.data.verdict ?? null,
+      // Mac finding D5: whether this run got anywhere. A run that parked at
+      // the first gate having filled two fields is not evidence about the
+      // budget — six such iCIMS runs read "within budget" while performing
+      // 2 of ~40 fields across 1 of 6 steps. Budget verdicts are computed
+      // over rows that actually reached a review diff (or submitted).
+      reached_review: evs.some((e) => e.type === 'review_diff'
+        && (e.data.scope ?? 'review') === 'review') || !!submittedEv,
+      suspect: ended.type === 'application_ended' && ended.data.outcome === 'suspect',
     };
   });
 }
@@ -193,6 +227,7 @@ export function aggregateByAts(rows, budgets = BUDGETS) {
         ats, n: 0, budget: budgets[ats] ?? null, tool_calls: [], browser_actions: [],
         model_turns: 0, submitted: 0, walls: 0, over_budget: [],
         outcomes: {}, would_require_invention: 0, incomplete: 0,
+        reached_review: 0, suspects: 0,
       });
     }
     const a = out.get(ats);
@@ -203,9 +238,13 @@ export function aggregateByAts(rows, budgets = BUDGETS) {
     a.would_require_invention += r.would_require_invention;
     if (r.submitted) a.submitted++;
     if (!r.complete) a.incomplete++;
+    if (r.reached_review) a.reached_review = (a.reached_review ?? 0) + 1;
+    if (r.suspect) a.suspects = (a.suspects ?? 0) + 1;
     a.walls += r.walls.length;
     a.outcomes[r.outcome ?? 'incomplete'] = (a.outcomes[r.outcome ?? 'incomplete'] ?? 0) + 1;
-    if (a.budget !== null && r.tool_calls > a.budget) {
+    // D5: only a run that reached review can be over OR under budget in any
+    // meaningful sense.
+    if (a.budget !== null && r.reached_review && r.tool_calls > a.budget) {
       a.over_budget.push({ job_key: r.job_key, tool_calls: r.tool_calls, over: r.tool_calls - a.budget });
     }
   }
@@ -221,10 +260,16 @@ export function aggregateByAts(rows, budgets = BUDGETS) {
     };
     const b = [...a.browser_actions].sort((x, y) => x - y);
     a.action_stats = { p50: PERCENTILE(b, 50), max: b.at(-1) ?? null };
-    // The status a human reads first.
+    // The status a human reads first. D5's rule: a budget verdict earned by
+    // doing nothing must not read like a real one — six iCIMS runs that
+    // parked at the first gate with two fields filled previously reported
+    // "within budget", which was true and meaningless. A row with no
+    // review-reaching runs says so instead of claiming a pass.
+    const eligible = a.reached_review ?? 0;
     a.verdict = a.budget === null ? 'TBD from shadow'
-      : a.over_budget.length ? `OVER on ${a.over_budget.length}/${a.n}`
-        : 'within budget';
+      : eligible === 0 ? `not measurable — 0/${a.n} runs reached review`
+        : a.over_budget.length ? `OVER on ${a.over_budget.length}/${eligible}`
+          : `within budget (${eligible}/${a.n} reached review)`;
   }
 
   return [...out.values()].sort((x, y) => y.n - x.n);

@@ -282,6 +282,12 @@ export function buildFacts(profile) {
     'selfid.veteran': s.veteran,
     'selfid.disability': s.disability,
     'consent.terms': y.agree_to_terms_and_privacy,
+    // consent.privacy draws from the SAME profile answer as consent.terms:
+    // `agree_to_terms_and_privacy` names both, and the iCIMS guest-apply
+    // privacy checkbox is the entry-gating half of that consent. No new
+    // profile field is invented — the two keys exist because FORMS separate
+    // them, not because Felix's answer does.
+    'consent.privacy': y.agree_to_terms_and_privacy,
     'consent.dataRetention': y.consent_to_data_retention,
     'consent.backgroundCheck': y.consent_to_background_check,
     'consent.smsRecruiting': y.consent_to_sms_recruiting,

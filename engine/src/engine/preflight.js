@@ -129,6 +129,11 @@ export function classifyHeaders(status, headers = {}) {
   }
   if (status === 429) return { wallClass: 'http-429', marker: 'http-status:429' };
   if (status === 403) return { wallClass: 'http-403', marker: 'http-status:403' };
+  // Droplet, 2026-09-17: 3 of 35 probed iCIMS tenants answered 410 — the
+  // posting is withdrawn. Terminal by definition (410 means "gone, and
+  // deliberately so"), and previously a null that bought a model-fallback
+  // turn per affected URL.
+  if (status === 410) return { wallClass: 'posting-closed', marker: 'http-status:410' };
   if (typeof status === 'number' && status >= 500) {
     return { wallClass: 'tenant-5xx', marker: `http-status:${status}` };
   }

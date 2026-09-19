@@ -104,8 +104,14 @@ export const LABEL_PATTERNS = Object.freeze([
   ['identity.fullName', /^(full\s*name|name)\s*\*?$/i],
   ['contact.email', /e-?mail/i],
   ['contact.phone', /phone|mobile|cell/i],
-  ['contact.address.line1', /address(\s*line)?\s*1|street\s*address|^address\b/i],
+  // ORDER IS LOAD-BEARING (Mac finding D7): line2 must be tested BEFORE line1.
+  // keyForLabel takes the first hit, and line1's old bare `^address\b`
+  // alternative matched "Address Line 2" too — so on both Relay runs line 2
+  // received line 1's value. line2 first, and line1's bare form now demands
+  // the label END there (`^address$`), so only an actually-bare "Address"
+  // field can take it.
   ['contact.address.line2', /address(\s*line)?\s*2|apt|suite/i],
+  ['contact.address.line1', /address(\s*line)?\s*1|street\s*address|^address\s*\*?$/i],
   ['contact.address.city', /^city/i],
   ['contact.address.state', /^state|province|region/i],
   ['contact.address.postalCode', /zip|postal/i],
@@ -139,6 +145,12 @@ export const LABEL_PATTERNS = Object.freeze([
   ['work.reasonForLeaving', /reason\s*for\s*leaving/i],
   ['work.isCurrent', /current\s*job|currently\s*(work|employed)/i],
   ['account.login', /^login|user\s*name|username/i],
+  // Gate 1 fix batch: the entry-gating privacy consent. On the iCIMS tenants
+  // that render it, Next is DISABLED until it is checked; with no key here the
+  // generic path had no mappable way to check it and parked forever at the
+  // gate. Kept LAST and deliberately specific — a bare /privacy/ would steal
+  // "Privacy Officer" style job-title fields.
+  ['consent.privacy', /i\s+(?:have\s+read\s+and\s+)?(?:accept|agree\s+to)\s+.*(?:privacy|terms|gdpr)|privacy\s+(?:policy|statement|notice)|\bgdpr\b/i],
 ]);
 
 /** Best-effort key for a label. Returns null rather than a guess. */

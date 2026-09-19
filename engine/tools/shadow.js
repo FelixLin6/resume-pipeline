@@ -59,7 +59,8 @@ import { discover, resolveRoot, emitDiscovery } from '../src/engine/discovery.js
 import { planField } from '../src/engine/mapping.js';
 import { applyPlan, scanFormForForbidden, ParkRequired } from '../src/engine/fill.js';
 import { identifyStep, advanceStep, stepSpec } from '../src/engine/advance.js';
-import { diffReview, emitReviewDiff, checkJobFacts } from '../src/engine/review.js';
+import { diffReview, emitReviewDiff, checkJobFacts, auditUnanswered } from '../src/engine/review.js';
+import { SKIP_REASONS } from '../src/events/schema.js';
 import { classifyPage } from '../src/engine/preflight.js';
 import { probeIpClass } from '../src/engine/ipclass.js';
 import { WallMemory } from '../src/engine/walls.js';
@@ -158,7 +159,7 @@ export async function shadowRun({
 
   const summary = {
     url, ats: adapter.id, tenant, permitted, steps: [], filled: 0, skipped: 0,
-    refused: [], wall: null, stopped_at: null, review: null,
+    refused: [], wall: null, stopped_at: null, review: null, suspect: false,
   };
 
   try {
@@ -167,11 +168,18 @@ export async function shadowRun({
     const ctx = await contexts.create(applier, { tenant });
     const page = await ctx.newPage();
 
-    stream.emit('application_started', {
+    // Mac finding D8: the stream carried no timing at all — duration_ms and
+    // elapsed_ms were hardcoded 0, so Gate 1's own artifact could not answer
+    // "how long did this take" and every wall-clock number had to be measured
+    // from outside the process. Measured here, from the moment the
+    // application starts.
+    const appT0 = Date.now();
+    const startedEv = stream.emit('application_started', {
       apply_url: url, pdf: null, pdf_sha256: null, attempt: 1, claim: 'none',
       mode: permitted ? 'shadow-fill' : 'shadow-probe',
     });
 
+    const preT0 = Date.now();
     const res = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
     const status = res?.status() ?? null;
     await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
@@ -180,7 +188,7 @@ export async function shadowRun({
     const hit = await classifyPage({ page, root: page, status, headers: {}, adapter });
     stream.emit('preflight_result', {
       reachable: true, http_status: status, wall_class: hit?.wallClass ?? null,
-      elapsed_ms: 0, context: 'shadow', ip_class: ipClass,
+      elapsed_ms: Date.now() - preT0, context: 'shadow', ip_class: ipClass,
     });
     if (hit) {
       const entry = wallMemory.record(tenant, hit.wallClass, 'preflight');
@@ -192,18 +200,37 @@ export async function shadowRun({
         tenant_prior_walls: entry.occurrences - 1, action,
       });
       summary.wall = { wall_class: hit.wallClass, action };
+
+      // A closed posting is TERMINAL (droplet finding A): no model-fallback
+      // turn, no assist slot, nothing to fill. Stop here, by name.
+      if (hit.wallClass === 'posting-closed') {
+        summary.stopped_at = 'posting-closed';
+      }
     }
 
     // ---- the loop ---------------------------------------------------------
     const filledBefore = new Map();
+    // field_key -> the bank's source DateValue, so the review diff can compare
+    // what the page RENDERS against the source of truth rather than against
+    // the engine's own formatted write (Mac finding D4 / the Relay date).
+    const dateSources = new Map();
     let steps = 0;
     let current = null;
 
-    while (steps < maxSteps) {
+    while (steps < maxSteps && !summary.stopped_at) {
       steps++;
       const rootSpec = await adapter.formRoot({ url: new URL(page.url()) }, current);
       const root = resolveRoot(page, rootSpec);
-      const shim = { page, frame: root, url: new URL(page.url()), jobKey, tenant, log: () => {} };
+      const shim = {
+        page, frame: root, url: new URL(page.url()), jobKey, tenant,
+        // Droplet finding: the old `log: () => {}` swallowed passGate's
+        // per-tenant telemetry — has_consent_checkbox / next_disabled is
+        // exactly the consent-variance data Gate 1 exists to collect. Adapter
+        // logs are stream events, on every runner.
+        log: (msg, extra = {}) => stream.emit('adapter_note', {
+          msg: String(msg).slice(0, 200), extra,
+        }),
+      };
 
       current = await identifyStep(adapter, { page, root });
       stream.context({ step: current ?? 'unknown' });
@@ -312,6 +339,20 @@ export async function shadowRun({
           continue;
         }
 
+        // Mac finding D7 (defence in depth; the label-pattern ordering is the
+        // root fix): a SECOND control resolving to a key this application has
+        // already filled receives nothing. On both Relay runs "Address Line 2"
+        // took line 1's value this way. One key, one control, per application.
+        if (filledBefore.has(plan.field_key)) {
+          summary.skipped++;
+          stream.emit('field_skipped', {
+            field_key: plan.field_key, label: field.label, required: !!plan.required,
+            reason: 'already_filled',
+            detail: 'a control already filled under this key exists on this page',
+          });
+          continue;
+        }
+
         stream.emit('field_mapped', {
           field_key: plan.field_key,
           control: field.control,
@@ -343,12 +384,35 @@ export async function shadowRun({
           if (r.ok) {
             summary.filled++;
             filledBefore.set(plan.field_key, String(r.actual));
+            if (plan.action === 'date') dateSources.set(plan.field_key, plan.value);
           }
         } catch (e) {
-          if (e instanceof ParkRequired) {
-            stream.emit('adapter_note', { msg: `park: ${e.reason}`, extra: { field_key: plan.field_key } });
-            summary.stopped_at = `park:${e.reason}`;
-          } else throw e;
+          // Mac finding D2: a fill error was fatal — the Amperesand run died
+          // whole at 5.5s on one unbindable date control, after everything
+          // before it had filled. ONE rule now: a per-field failure parks THE
+          // FIELD and the application continues. The single exception is
+          // forbidden_value, which is evidence the FORM holds a value that
+          // must never be submitted — that parks the application, by design.
+          if (e instanceof ParkRequired && e.reason === 'forbidden_value') {
+            stream.emit('adapter_note', {
+              msg: 'application parked: a forbidden value reached the form',
+              extra: { field_key: plan.field_key },
+            });
+            summary.stopped_at = 'park:forbidden_value';
+            break;
+          }
+          const reason = (e instanceof ParkRequired && SKIP_REASONS.includes(e.reason))
+            ? e.reason
+            : 'fill_failed';
+          summary.skipped++;
+          stream.emit('field_skipped', {
+            field_key: plan.field_key, label: field.label, required: !!plan.required,
+            reason,
+            detail: String(e?.message ?? e).slice(0, 160),
+          });
+          // A required field that could not be written stays visible to the
+          // review audit (auditUnanswered), which is what parks the
+          // application at the diff instead of aborting it here.
         }
       }
 
@@ -365,13 +429,34 @@ export async function shadowRun({
       if (spec?.isReview && adapter.readReview) {
         const rendered = await adapter.readReview(shim);
         const intended = [...filledBefore.entries()].map(([field_key, intendedValue]) => ({
-          field_key, intended: intendedValue,
+          field_key,
+          intended: intendedValue,
+          // Dates carry their SOURCE DateValue: the diff then checks the page
+          // against the bank, not against our own write. "01/01/2027" written
+          // and "01/01/2027" rendered verified 12/12 on Relay while the
+          // ledger's answer was May 2027 — a diff that compares the write
+          // against itself can only ever verify the write (Mac finding D4).
+          ...(dateSources.has(field_key) ? { sourceDate: dateSources.get(field_key) } : {}),
         }));
         const diff = diffReview(intended, rendered);
         for (const extra of checkJobFacts({ rendered, jobFacts })) diff.mismatches.push(extra);
+
+        // The other half of D4: audit the QUESTIONS, not only our answers.
+        // Every required, visible control still empty on the review page is a
+        // FAIL — Clockwork's "Can you legally work in the United States?*"
+        // stood unanswered behind a 6/6 pass because the old diff iterated
+        // only what the engine had filled.
+        const reviewFields = (await discover(root, {
+          noiseSelectors: adapter.quirks?.noiseSelectors ?? [],
+        })).fields;
+        for (const miss of auditUnanswered(reviewFields)) diff.mismatches.push(miss);
+
         if (diff.mismatches.some((m) => m.severity === 'fail')) diff.verdict = 'fail';
         emitReviewDiff(stream, diff);
-        summary.review = { checked: diff.checked, matched: diff.matched, verdict: diff.verdict };
+        summary.review = {
+          checked: diff.checked, matched: diff.matched, verdict: diff.verdict,
+          unanswered_required: diff.mismatches.filter((m) => m.reason === 'unanswered_required').length,
+        };
 
         stream.emit('adapter_note', {
           msg: 'HARD STOP: review diff produced. The shadow runner stops here, before submit.',
@@ -390,20 +475,72 @@ export async function shadowRun({
         break;
       }
 
-      const adv = await advanceStep(adapter, shim, current, { events: stream, page, root });
+      // The advance SETTLES (advance.js Rule 2): it polls inside the correct
+      // frame for a step change or a fired wall marker, and classifies with
+      // where:'advance:<step>' before concluding anything. The 66–74 ms
+      // top-level wait that ended six iCIMS runs as "no-progress" is gone.
+      const adv = await advanceStep(adapter, shim, current, {
+        events: stream, page, root, wallMemory, tenant,
+      });
+
+      if (adv.wall) {
+        summary.wall = { wall_class: adv.wall.wallClass, where: `advance:${current}` };
+        summary.stopped_at = `wall:${adv.wall.wallClass}`;
+        break;
+      }
       if (adv.blockedBy?.length) {
         summary.stopped_at = 'blocked';
         break;
       }
-      if (adv.to === current) { summary.stopped_at = 'no-progress'; break; }
+      if (adv.to === current || adv.to === null) {
+        // A full settle with NO step change, NO named blocker and NO wall.
+        // This exact shape — recorded as a clean assist — is how the cesi
+        // false clean happened, so it is now its own outcome: SUSPECT. It is
+        // never reported clean, and the evidence capture below preserves what
+        // the page looked like so the next person does not need a separate
+        // probe run to find out (Mac finding D9).
+        summary.stopped_at = adv.to === null ? 'unknown-after-advance' : 'no-progress';
+        summary.suspect = true;
+        break;
+      }
     }
 
+    // Mac finding D9: nothing recorded what the page looked like at a stall —
+    // distinguishing the settle race from a genuine wall took a separate
+    // probe run. Any park/stall now captures a screenshot next to the stream.
+    if (summary.stopped_at && !['after-review-diff', 'submit-step'].includes(summary.stopped_at) && eventsFile) {
+      try {
+        const shotPath = path.join(path.dirname(eventsFile),
+          `park-${applier}-${summary.stopped_at.replace(/[^a-z0-9-]+/gi, '_')}.png`);
+        await page.screenshot({ path: shotPath, fullPage: false });
+        stream.emit('evidence_captured', { kind: 'parked', path: shotPath });
+      } catch { /* evidence is best-effort; the park itself is already recorded */ }
+    }
+
+    // Self-reported cost must equal what the harness will re-derive from the
+    // stream (Mac finding D10: `stream.seq` included pre-application driver
+    // events and every heartbeat, inflating every run 6-14%). The definition
+    // is the harness's own: seq span from application_started, minus
+    // heartbeats.
+    const heartbeats = stream.events.filter((e) => e.type === 'heartbeat' && e.seq > startedEv.seq).length;
+
+    // The outcome NAMES what stopped us. 'assist' is only for a stop with a
+    // known, human-resolvable cause; a classified wall is 'wall', a withdrawn
+    // posting is 'drop-at-apply', and an unexplained stall is 'suspect' —
+    // recording a wall stop as an assist is a milder cousin of the false
+    // clean this batch exists to kill.
+    const outcome = summary.suspect ? 'suspect'
+      : summary.stopped_at === 'posting-closed' ? 'drop-at-apply'
+        : summary.stopped_at?.startsWith('wall:') ? 'wall'
+          : summary.stopped_at === 'park:forbidden_value' ? 'needs-felix'
+            : 'assist';
+
     stream.emit('application_ended', {
-      outcome: 'assist',
+      outcome,
       reason: `shadow run stopped at: ${summary.stopped_at ?? 'max-steps'}`,
       unlock: null,
-      duration_ms: 0,
-      tool_calls: stream.seq,
+      duration_ms: Date.now() - appT0,
+      tool_calls: (stream.seq - startedEv.seq) - heartbeats,
       model_turns: 0,
     });
   } finally {

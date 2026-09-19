@@ -59,9 +59,25 @@
   const next = document.getElementById('enterEmailSubmitButton');
   box.addEventListener('change', () => { next.disabled = !box.checked; });
 
-  // Test hook: ?captcha=fired renders the challenge, mimicking the gate
-  // actually firing. Nothing clicks it — the engine never touches a captcha.
-  if (new URLSearchParams(location.search).get('captcha') === 'fired') {
+  // Test hooks. Nothing clicks the captcha — the engine never touches one.
+  //   ?captcha=fired    challenge visible at load
+  //   ?captcha=on-next  challenge fires ~800ms AFTER Next is clicked — the
+  //                     cesi timing: the adapter's old top-level wait resolved
+  //                     in 66–74ms, i.e. long before this, which is exactly
+  //                     the race the engine's settle loop exists to lose
+  //                     gracefully. 800ms sits inside the settle window and
+  //                     far outside any instant wait.
+  //   ?stall=1          Next does nothing at all, forever: the no-progress /
+  //                     SUSPECT shape.
+  const mode = new URLSearchParams(location.search);
+  if (mode.get('captcha') === 'fired') {
     document.getElementById('captcha-wrap').classList.add('fired');
+  }
+  if (mode.get('captcha') === 'on-next') {
+    next.addEventListener('click', () => {
+      setTimeout(() => {
+        document.getElementById('captcha-wrap').classList.add('fired');
+      }, 800);
+    });
   }
 </script>

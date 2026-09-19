@@ -34,12 +34,38 @@ export const EVENT_TYPES = Object.freeze([
 export const OUTCOMES = Object.freeze([
   'submitted', 'retry', 'wall', 'needs-felix', 'assist',
   'drop-at-apply', 'skipped-repost',
+  // Gate 1 fix batch: an application that stalled with NO named cause — no
+  // blocked_by, no classified wall, no step change. The cesi false clean
+  // (2026-09-17) ended exactly this way while an hCaptcha was on screen:
+  // "no-progress with nothing to blame" is the signature of a wall the
+  // classifier missed, so it must be un-reportable as a clean assist.
+  'suspect',
 ]);
 
 export const SKIP_REASONS = Object.freeze([
   'unmapped_required', 'unmapped_optional', 'no_such_field',
   'value_absent', 'option_not_found', 'forbidden_value',
   'would_require_invention',
+  // Gate 1 fix batch:
+  //   fill_failed     the write itself threw (Amperesand: locator.fill of
+  //                   "01/01/2027" into input[type=number] killed the whole
+  //                   application at 5.5s). A field the engine cannot write is
+  //                   a PARKED FIELD, never an aborted application.
+  //   already_filled  a second control resolved to a key this step already
+  //                   filled (Relay: "Address Line 2" matched line1's label
+  //                   pattern and received line 1's value). The duplicate is
+  //                   refused and named, not silently overwritten.
+  'fill_failed', 'already_filled',
+]);
+
+/** gate_result.kind — now validated. The droplet's probe pass showed why the
+ *  vocabulary needs `observed`: icims.passGate emitted {kind:'passed'} when it
+ *  merely SAW the email box, so the ledger evidence claimed a gate pass on all
+ *  32 probe rows where nothing was passed at all. `passed` is reserved for a
+ *  gate actually cleared; `observed` means "the gate is here, and this is what
+ *  it looks like". */
+export const GATE_KINDS = Object.freeze([
+  'none', 'observed', 'passed', 'needs-human', 'failed',
 ]);
 
 export const WALL_CLASSES = Object.freeze([
@@ -60,6 +86,14 @@ export const WALL_CLASSES = Object.freeze([
   //                 a bot wall, and conflating the two would teach the wall
   //                 memory that a tenant "gates" us when it is simply down.
   'akamai', 'tenant-broken',
+  // Gate 1 fix batch (droplet finding A): HTTP 410 on the posting URL. Three
+  // of 35 probed iCIMS tenants returned it — the posting is WITHDRAWN, which
+  // is terminal: no retry, no assist slot, and above all no model-fallback
+  // turn, which is what a null classification was buying. Not a bot wall,
+  // but it lives in this enum because the pre-flight's job is to name what
+  // stands between us and the form, and "the form no longer exists" is the
+  // cheapest possible answer to discover first.
+  'posting-closed',
   'unknown-challenge',
 ]);
 
@@ -203,6 +237,9 @@ export function validateEvent(ev) {
       break;
     case 'review_diff':
       if (!['pass', 'fail'].includes(d.verdict)) fail(`review_diff.verdict must be pass|fail`);
+      break;
+    case 'gate_result':
+      if (!GATE_KINDS.includes(d.kind)) fail(`unknown gate kind: ${d.kind}`);
       break;
     case 'submitted':
       // The confirmation page is the PRIMARY verification (inbox secondary).

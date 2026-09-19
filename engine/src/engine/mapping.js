@@ -157,6 +157,37 @@ export function planField(field, { binding = null, profile, bank }) {
 
   // ---- option controls --------------------------------------------------
   if (field.control === 'select' || field.control === 'radio' || field.control === 'combobox') {
+    // A combobox that has rendered NO options is a typeahead: its choices do
+    // not exist in the DOM until someone types (react-select on every
+    // Greenhouse demographic; Lever's location box; Workday's picklists).
+    // Matching against the empty list skipped all of them as
+    // `option_not_found` — Hermeus lost links.website / links.linkedin /
+    // education.school and Clockwork left "Can you legally work in the United
+    // States?*" unanswered this way (Mac finding D6). The honest move is to
+    // TYPE the value and commit with Enter, and let the mandatory read-back
+    // verify the control accepted it: no option is guessed — the text written
+    // is the bank's own value (or the adapter's declared wording for the
+    // canonical), and a rejection comes back as an unfilled field, not as a
+    // wrong one.
+    if (field.control === 'combobox' && !(field.options ?? []).length) {
+      const text = resolved.kind === 'enum'
+        ? (binding?.optionText?.[resolved.value]?.[0] ?? null)
+        : String(resolved.value);
+      if (text) {
+        return {
+          action: 'fill', field_key: key, required,
+          value: text,
+          ...(resolved.kind === 'enum' ? { canonical: resolved.value, option_text: text } : {}),
+          source: resolved.source,
+          commit: 'enter',
+          match: 'typed-commit',
+        };
+      }
+      // An enum with no declared wording still cannot be typed: the canonical
+      // slug must never reach a form.
+      return { action: 'skip', field_key: key, label: field.label, required, reason: 'option_not_found', candidates_seen: [] };
+    }
+
     const canonical = resolved.kind === 'enum' ? resolved.value : String(resolved.value);
     const m = matchOption(canonical, field.options ?? [], binding?.optionText);
     if (!m.matched) {

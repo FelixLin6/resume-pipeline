@@ -92,6 +92,12 @@ const icims = {
       markers: [{ selector: 'iframe[title="hCaptcha challenge"]', requireVisible: true }],
       expects: [],
       optional: true,
+      // isWall makes identifyStep evaluate this step FIRST and short-circuit
+      // (advance.js Rule 1). Without it this step was unreachable BY
+      // CONSTRUCTION: the challenge overlays guest-apply, whose 3 markers all
+      // stay true underneath it, so a count-ranked identify scored 3–1 for
+      // guest-apply on every fired challenge — the cesi false clean.
+      isWall: true,
       // CRITICAL: this fires BEFORE the form loads, so nothing is filled
       // behind it — an assist slot spent here buys zero fields. Observed
       // 2026-09-17: 3 of 4 gates did NOT re-fire on a second visit, so it is
@@ -129,6 +135,7 @@ const icims = {
       markers: [{ selector: 'iframe[title="hCaptcha challenge"]', requireVisible: true }],
       expects: [],
       optional: true,
+      isWall: true,
       // iCIMS DOUBLE-GATES. Confirmed by two screenshots this week (JHU APL
       // after-submit, Cotiviti) showing the puzzle re-appear over an already
       // filled Work Experience section. Budget an iCIMS tenant as TWO puzzles,
@@ -211,7 +218,13 @@ const icims = {
             selectorConfidence: 'verified-shadow',
           },
           {
-            key: 'consent.terms',
+            // Re-keyed consent.terms -> consent.privacy (Gate 1 fix batch):
+            // this checkbox is the ENTRY gate — Next stays disabled until it
+            // is checked on the tenants that render it — which is what
+            // consent.privacy names. Both keys resolve to the same profile
+            // answer (agree_to_terms_and_privacy), so the value is unchanged;
+            // only the claim in the stream is now accurate.
+            key: 'consent.privacy',
             // VERIFIED, and the id VARIES BY TENANT: #accept_gdpr on
             // DecisionPoint and GDMS, #accept_privacy on JHU APL, and ABSENT
             // on CESI and Cotiviti. A union selector covers the observed set;
@@ -300,12 +313,26 @@ const icims = {
       has_consent_checkbox: hasConsent,
       next_disabled: nextDisabled,
     });
-    return { kind: 'passed', via: 'guest' };
+    // 'observed', NOT 'passed' (droplet finding, Gate 1 fix batch): this
+    // method has only LOOKED at the gate — the email is not yet entered and
+    // Next is not yet clicked. The old {kind:'passed'} put a claimed gate
+    // pass into the stream on all 32 probe rows where nothing was passed.
+    // 'passed' is the engine's to emit, after the advance past this step
+    // actually lands.
+    return { kind: 'observed', via: 'guest' };
   },
 
   async identifyStep(ctx) {
     const root = ctx.frame;
     const url = ctx.url?.href ?? '';
+    // The wall first, ALWAYS — the same Rule 1 the engine's identifyStep now
+    // enforces. The challenge overlays guest-apply without removing any of its
+    // markers, so any URL/button check that runs first reports the page under
+    // the challenge instead of the challenge (the cesi false clean).
+    const challenge = root.locator('iframe[title="hCaptcha challenge"]').first();
+    if (await challenge.count() && await challenge.isVisible().catch(() => false)) {
+      return 'captcha-gate';
+    }
     if (/\/jobs\/\d+\/login/i.test(url) && await root.locator('#enterEmailSubmitButton').count()) {
       return 'guest-apply';
     }
@@ -332,8 +359,15 @@ const icims = {
     }
 
     await btn.click();
-    await ctx.page.waitForLoadState('domcontentloaded').catch(() => {});
-    return { to: null };   // the engine re-identifies
+    // NO top-level wait here, deliberately. The old line awaited
+    // domcontentloaded on ctx.page — but the form lives in
+    // iframe#icims_content_iframe, so the top page never navigates and that
+    // await resolved in 66–74 ms (measured on six tenants), long before either
+    // the in-frame transition or the challenge frame rendered. The ENGINE now
+    // settles after every advance (advance.js Rule 2), polling inside the
+    // correct frame for a step change or a fired wall; a wait the adapter
+    // cannot do correctly is a wait it must not pretend to do.
+    return { to: null };   // the engine settles, classifies, then re-identifies
   },
 
   async upload(ctx, target, file) {

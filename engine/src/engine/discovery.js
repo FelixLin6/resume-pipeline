@@ -109,6 +109,14 @@ function describeControls(els, opts) {
       visible: visible(el),
       value: tag === 'select' ? (el.options[el.selectedIndex]?.text ?? '') : (el.value ?? ''),
       checked: type === 'checkbox' || type === 'radio' ? !!el.checked : null,
+      // For radios: the QUESTION, as opposed to this member's option text.
+      // A fieldset legend or an aria-labelled group is the question; without
+      // it the group falls back to its first member's label.
+      groupLabel: type === 'radio'
+        ? (el.closest('fieldset')?.querySelector('legend')?.innerText
+            || el.closest('[role="radiogroup"]')?.getAttribute('aria-label')
+            || null)
+        : null,
       options: tag === 'select'
         ? [...el.options].map((o) => (o.text || '').replace(/\s+/g, ' ').trim())
         : null,
@@ -137,10 +145,47 @@ function describeControls(els, opts) {
  *
  * @returns {Promise<{fields: object[], all: object[], noise: object[]}>}
  */
+/**
+ * Collapse each radio GROUP (same `name`) into one logical control whose
+ * `options` are the member labels and whose `members` carry enough to address
+ * the one that matches.
+ *
+ * Mac finding D6 made this necessary: radios were N separate controls, each
+ * with an EMPTY option list, so every radio question — Lever's whole EEO race
+ * block, the yes/no eligibility cards — skipped as `option_not_found` with
+ * `candidates_seen: []`. The options were on the page; discovery just never
+ * assembled them into a question.
+ */
+function collapseRadioGroups(kept) {
+  const out = [];
+  const groups = new Map();
+  for (const f of kept) {
+    if (f.control !== 'radio' || !f.name) { out.push(f); continue; }
+    if (!groups.has(f.name)) {
+      const rep = {
+        ...f,
+        label: f.groupLabel || f.label,
+        options: [],
+        members: [],
+        checked: false,
+      };
+      groups.set(f.name, rep);
+      out.push(rep);
+    }
+    const rep = groups.get(f.name);
+    rep.options.push((f.label ?? '').trim());
+    rep.members.push({ index: f.index, id: f.id, label: f.label, checked: f.checked });
+    rep.checked = rep.checked || !!f.checked;
+    rep.required = rep.required || f.required;
+    rep.value = rep.checked ? (rep.members.find((m) => m.checked)?.label ?? rep.value) : '';
+  }
+  return out;
+}
+
 export async function discover(root, { includeHidden = false, noiseSelectors = [] } = {}) {
   const locator = root.locator(CONTROL_SELECTOR);
   const fields = await locator.evaluateAll(describeControls, { noiseSelectors });
-  const kept = fields.filter((f) => !f.noise);
+  const kept = collapseRadioGroups(fields.filter((f) => !f.noise));
   return {
     fields: includeHidden ? kept : kept.filter((f) => f.visible || f.control === 'file'),
     all: fields,

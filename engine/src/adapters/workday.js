@@ -771,18 +771,23 @@ const workday = {
         // FINDING 1, reported every time so its presence is auditable.
         honeypot_present: (await root.locator('[data-automation-id="beecatcher"]').count()) > 0,
       });
+      // 'observed', not 'passed': this branch has SEEN the create-account
+      // form; no account exists yet. Same droplet ruling as the iCIMS gate —
+      // a gate_result may only claim what actually happened.
       return cred
-        ? { kind: 'passed', via: 'account-created' }
+        ? { kind: 'observed', via: 'account-creation-available' }
         : { kind: 'needs-human', unlock: 'no stored credential for this Workday tenant' };
     }
 
     if (await signInBtn.count()) {
       // Ordinary sign-in NEVER reaches adapter code (Q1) — it is driven from
-      // `loginSpec` by the engine. Reporting it is all this branch may do.
+      // `loginSpec` by the engine. Reporting it is all this branch may do,
+      // and what it reports is an OBSERVATION: 'passed' is emitted by the
+      // engine after loginSpec's `success` condition is actually met.
       ctx.log('workday sign-in gate observed', {
         honeypot_present: (await root.locator('[data-automation-id="beecatcher"]').count()) > 0,
       });
-      return { kind: 'passed', via: 'login' };
+      return { kind: 'observed', via: 'login-form' };
     }
 
     return { kind: 'none' };

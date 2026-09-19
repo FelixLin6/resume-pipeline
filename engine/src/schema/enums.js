@@ -62,6 +62,7 @@ export const ENUM_FOR_KEY = Object.freeze({
   'consent.smsRecruiting': YES_NO,
   'consent.marketing': YES_NO,
   'consent.terms': YES_NO,
+  'consent.privacy': YES_NO,
   'misc.willingToTravel': YES_NO,
   'misc.hasNonCompete': YES_NO,
   'misc.relatedToEmployee': YES_NO,

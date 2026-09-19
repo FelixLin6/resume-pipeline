@@ -241,23 +241,26 @@ test('a self-reported tool_calls that the stream does not bear out is flagged', 
 test('per-ATS aggregation reports the budget honestly', () => {
   const s = stream();
   cleanApplication(s, JOB_A, 'icims');
-  cleanApplication(s, JOB_B, 'greenhouse');
+  cleanApplication(s, JOB_B, 'workday');
 
   const rows = perApplication(s.events);
   const byAts = aggregateByAts(rows);
   const icims = byAts.find((a) => a.ats === 'icims');
-  const gh = byAts.find((a) => a.ats === 'greenhouse');
+  const wd = byAts.find((a) => a.ats === 'workday');
 
-  // C7: only iCIMS carries a line-item target, because it is the only row with
-  // a measured baseline on both sides.
+  // A budget line exists only where a measurement does: iCIMS's baseline, and
+  // (since the Gate 1 fix batch) the Mac-measured Greenhouse/Lever p90s.
+  // Workday has nothing measured behind its account gate, so it stays null.
   assert.equal(icims.budget, 40);
-  assert.equal(icims.verdict, 'within budget');
-  assert.equal(gh.budget, null);
-  assert.equal(gh.verdict, 'TBD from shadow',
+  assert.match(icims.verdict, /^within budget \(1\/1 reached review\)$/);
+  assert.equal(wd.budget, null);
+  assert.equal(wd.verdict, 'TBD from shadow',
     'publishing an estimate in the same typography as a measurement is how a target ' +
     'nobody measured becomes a target nobody can be held to');
   assert.equal(BUDGETS.workday, null);
-  assert.equal(BUDGETS.lever, null);
+  assert.equal(BUDGETS.ashby, null);
+  assert.equal(BUDGETS.lever, 75);
+  assert.equal(BUDGETS.greenhouse, 50);
 });
 
 test('an over-budget application is REPORTED, never abandoned', () => {
@@ -267,6 +270,8 @@ test('an over-budget application is REPORTED, never abandoned', () => {
   for (let i = 0; i < 60; i++) {
     s.emit('field_filled', { field_key: 'education.school', value_hash: 'sha256:a', strategy: 'fill' });
   }
+  // D5: only a run that reached review is budget-eligible; this one did.
+  s.emit('review_diff', { checked: 10, matched: 10, mismatches: [], verdict: 'pass' });
   s.emit('application_ended', { outcome: 'submitted', reason: 'ok', duration_ms: 1, tool_calls: null, model_turns: 0 });
 
   const a = aggregateByAts(perApplication(s.events));
@@ -295,8 +300,9 @@ test('a clean report names the numbers and the caveats', () => {
   const s = stream();
   cleanApplication(s, JOB_A, 'icims');
   // A second ATS with no measured budget, which is the case the "TBD from
-  // shadow" typography exists for.
-  cleanApplication(s, JOB_B, 'lever');
+  // shadow" typography exists for. Workday, since the Gate 1 fix batch:
+  // lever/greenhouse now carry measured budgets.
+  cleanApplication(s, JOB_B, 'workday');
   const md = renderMarkdown(analyze(s.events, { meta: { run: '2026-09-17', files: 1 } }));
   assert.match(md, /No violations/);
   assert.match(md, /_TBD from shadow_/);

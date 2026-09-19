@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8"><title>Apply for this job</title>
+<!-- The Amperesand crash shape (Mac finding D1), plus the other per-field
+     regressions from the same run set:
+       - education dates as three input[type=number] controls (#start-year--0):
+         a 'mm/dd/yyyy-text' date STRING typed into a number box throws in
+         Playwright and used to kill the entire application;
+       - a radio GROUP for work authorization (Clockwork's unanswered
+         "Can you legally work in the United States?*") — previously
+         discovered as N separate option-less controls, all skipped
+         option_not_found;
+       - TWO controls whose labels both resolved to contact.address.line1
+         (Relay finding D7);
+       - a required text question the bank cannot answer, which must remain
+         visible to the review audit as unanswered_required. -->
+<h1>Apply for this job</h1>
+<label for="first_name">First Name*</label><input id="first_name" type="text" required>
+<label for="last_name">Last Name*</label><input id="last_name" type="text" required>
+<label for="email">Email*</label><input id="email" type="text" required>
+
+<label for="addr1">Address Line 1</label><input id="addr1" type="text">
+<label for="addr2">Address Line 2</label><input id="addr2" type="text">
+<!-- Same key twice: both labels map to contact.email, so the second must be
+     refused as already_filled, never given the first one's value. -->
+<label for="email_confirm">Email (confirm)*</label><input id="email_confirm" type="text" required>
+
+<fieldset>
+  <legend>Can you legally work in the United States?*</legend>
+  <label><input type="radio" name="work_auth" id="wa-yes" required> Yes</label>
+  <label><input type="radio" name="work_auth" id="wa-no" required> No</label>
+</fieldset>
+
+<fieldset>
+  <legend>Start date*</legend>
+  <label for="start-month--0">Start date month*</label>
+  <input id="start-month--0" type="number" min="1" max="12" required>
+  <label for="start-year--0">Start date year*</label>
+  <input id="start-year--0" type="number" min="1900" max="2100" required>
+</fieldset>
+
+<label for="salary">What is your desired salary?*</label>
+<input id="salary" type="text" required>
+
+<input type="file" id="resume">
+<button>Submit application</button>

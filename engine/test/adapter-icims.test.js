@@ -118,7 +118,9 @@ test('every optionText vocabulary maps a REAL canonical value', () => {
 });
 
 test('the guest-apply binding covers the per-tenant consent id variance', () => {
-  const consent = icims.bindings('guest-apply').find((b) => b.key === 'consent.terms');
+  // Gate 1 fix batch re-keyed this binding: the entry-gate checkbox is what
+  // consent.privacy names; the profile answer behind it is unchanged.
+  const consent = icims.bindings('guest-apply').find((b) => b.key === 'consent.privacy');
   // Observed live: #accept_gdpr (DecisionPoint, GDMS), #accept_privacy
   // (JHU APL), and ABSENT entirely on CESI and Cotiviti.
   assert.match(consent.selector, /accept_gdpr/);

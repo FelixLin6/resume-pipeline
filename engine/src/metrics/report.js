@@ -42,6 +42,22 @@ export function renderMarkdown(analysis) {
   }
   out.push('');
 
+  // ---- suspects: stalls with no named cause -------------------------------
+  const suspects = rows.filter((r) => r.suspect);
+  if (suspects.length) {
+    out.push('## Suspect stalls');
+    out.push('');
+    out.push(`**${suspects.length} run(s) ended \`suspect\`** — an advance settled with no step change, ` +
+      'no named blocker and no classified wall. That shape is how the cesi false clean happened ' +
+      '(a fired hCaptcha recorded as a clean assist), so these rows are never counted as clean; ' +
+      'each has a park screenshot next to its stream.');
+    out.push('');
+    for (const r of suspects) {
+      out.push(`- \`${shortKey(r.job_key)}\` (${r.ats ?? '?'}) — steps: ${r.steps.join(' → ') || '—'}`);
+    }
+    out.push('');
+  }
+
   // ---- stream health ------------------------------------------------------
   if (meta.truncated?.length || meta.gaps?.length || meta.invalid?.length) {
     out.push('## Stream health');
@@ -125,9 +141,14 @@ export function renderMarkdown(analysis) {
   // ---- the honest caveat --------------------------------------------------
   out.push('## Reading this');
   out.push('');
-  out.push('- Only the **iCIMS** budget is a measured target (~470 today vs <40 claimed, architecture.md §8). ' +
-    'Every other row is `TBD from shadow` and is filled in from Gate 1 data by editing `BUDGETS` in ' +
+  out.push('- Budgets exist only where measurements do: **iCIMS** (~470 today vs <40 claimed, ' +
+    'architecture.md §8), and **Greenhouse (50) / Lever (75)**, set from the Mac Gate 1 shadow p90s ' +
+    '(2026-09-17; runs that reached review, covering the automatable subset of each form). ' +
+    'Remaining rows are `TBD from shadow` and are filled in by editing `BUDGETS` in ' +
     '`src/metrics/harness.js`, citing the run that produced the number.');
+  out.push('- A budget verdict is computed only over runs that REACHED REVIEW: six iCIMS runs that ' +
+    'parked at the first gate with two fields filled once read "within budget", which was true and ' +
+    'meaningless.');
   out.push('- **Per-field review-diff ground truth for iCIMS must come from Mac-side runs.** The droplet has ' +
     'three submitted iCIMS rows ever, and the ledgers\' `filled:` lines are prose, not per-field values — ' +
     'so a shadow diff run there can prove the engine READS a form correctly but cannot prove it would have ' +

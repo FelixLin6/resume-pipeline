@@ -186,7 +186,9 @@ test('gate observation reports the per-tenant consent shape', async (t) => {
     const notes = [];
     const ctx = { page, frame: root, url: new URL(page.url()), jobKey: JOB, log: (m, d) => notes.push({ m, d }) };
     const gate = await icims.passGate(ctx);
-    assert.equal(gate.kind, 'passed');
+    // Gate 1 fix batch: passGate only LOOKS at the gate — 'passed' is the
+    // engine's to emit after the advance past this step actually lands.
+    assert.equal(gate.kind, 'observed');
     assert.equal(gate.via, 'guest');
     assert.equal(notes[0].d.has_consent_checkbox, true);
     assert.equal(notes[0].d.next_disabled, true);

@@ -52,6 +52,9 @@ export const NO_RETRY_CLASSES = Object.freeze([
   'datadome',            // the SPA never renders; there is no challenge to solve
   'recaptcha-v3-score',  // a score, not an interaction
   'http-403',            // the edge refused us; a second identical request will too
+  'akamai',              // refuses with a reference number; no widget to solve
+  'posting-closed',      // HTTP 410: the posting is withdrawn — TERMINAL, and
+                         // cheaper than every other outcome to discover first
 ]);
 
 export const wallKey = (tenant, wallClass, where) => `${tenant}|${wallClass}|${where ?? 'unknown'}`;

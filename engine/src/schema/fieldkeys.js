@@ -38,6 +38,12 @@ export const FIELD_KEYS = Object.freeze([
 
   'consent.terms', 'consent.dataRetention', 'consent.backgroundCheck',
   'consent.smsRecruiting', 'consent.marketing',
+  // Gate 1 fix batch (droplet finding): the iCIMS guest-apply privacy-policy
+  // checkbox. On DecisionPoint / GDMS / JHU APL the Next button is DISABLED
+  // until it is checked, and with no key for it the engine had no mappable
+  // way to check it — those tenants parked forever at the gate. Distinct from
+  // consent.terms (an application-wide T&C agreement): this one gates ENTRY.
+  'consent.privacy',
 
   'misc.willingToTravel', 'misc.hasNonCompete', 'misc.relatedToEmployee',
 

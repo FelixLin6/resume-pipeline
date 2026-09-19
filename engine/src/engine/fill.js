@@ -69,7 +69,17 @@ export function forbiddenScanner(profile) {
  *  no format string is ever guessed from a placeholder (F5). */
 export function formatDate(dv, strategy) {
   const y = dv.year;
-  const m = dv.month ?? 1;
+  // A missing month is NOT January. Every strategy below prints a month, so a
+  // DateValue without one cannot be formatted without fabricating a fact —
+  // "01" asserted to a tenant where the bank says "month unknown" is an
+  // invention (the same class as the Relay start-date finding). The day is
+  // different: `dayRule: 'first-of-month'` is a DECLARED fill-in policy, so
+  // day=1 under that rule is licensed, not invented.
+  if (dv.month == null) {
+    throw new ParkRequired('would_require_invention',
+      'the date on file has no month; formatting one would fabricate it');
+  }
+  const m = dv.month;
   const d = dv.day ?? (dv.dayRule === 'first-of-month' ? 1 : 1);
   const pad = (n) => String(n).padStart(2, '0');
   switch (strategy) {
@@ -142,8 +152,30 @@ export async function applyPlan(root, field, plan, { events, profile, dateStrate
   }
 
   let strategy = 'fill';
+  // For radio groups the element written and read back is the MEMBER at the
+  // matched index, not the group's representative control.
+  let effLoc = loc;
+  let radioPick = false;
+
   switch (plan.action) {
     case 'select':
+      if (field.control === 'radio') {
+        // Mac finding D6, root cause: radio groups were discovered as N
+        // separate controls with EMPTY option lists, so every radio question
+        // (Lever's EEO race block, the yes/no eligibility cards) skipped as
+        // option_not_found — and the old selectOption() call would have thrown
+        // on a radio anyway. Discovery now collapses a group to one control
+        // carrying `options` + `members`; the fill checks the matched member.
+        strategy = 'check';
+        radioPick = true;
+        const member = field.members?.[plan.option_index];
+        effLoc = member?.id
+          ? root.locator(`[id="${String(member.id).replace(/"/g, '\\"')}"]`)
+          : root.locator(`input[type=radio][name="${String(field.name).replace(/"/g, '\\"')}"]`)
+            .nth(plan.option_index);
+        await effLoc.setChecked(true);
+        break;
+      }
       strategy = 'select';
       // Match by the option TEXT we resolved, never by index into a list that
       // may have re-rendered between discovery and now.
@@ -167,16 +199,41 @@ export async function applyPlan(root, field, plan, { events, profile, dateStrate
         throw new ParkRequired('split_date_needs_binding',
           'a split date needs three bound controls; bind them in the adapter');
       }
+      if ((field.type ?? '') === 'number') {
+        // Mac finding D1: Greenhouse renders education dates as three
+        // input[type=number] controls; a 'mm/dd/yyyy-text' strategy then
+        // hands a STRING to a number box and Playwright's locator.fill throws
+        // — which killed the whole Amperesand application at 5.5s. A date
+        // string can never be typed into a number input; this field needs its
+        // parts bound (dateParts) or it parks, alone.
+        throw new ParkRequired('fill_failed',
+          `a formatted date string cannot be written into input[type=number] ` +
+          `("${field.label ?? field.id ?? field.name}"); bind the date parts in the adapter`);
+      }
       await loc.fill(f);
       break;
     }
-    default:
+    default: {
       strategy = 'fill';
-      await loc.fill(String(plan.value));
+      const s = String(plan.value);
+      if ((field.type ?? '') === 'number' && !/^-?\d+([.,]\d+)?$/.test(s.trim())) {
+        // The general form of D1: any non-numeric write into a number input
+        // throws in Playwright. Refuse it as a FIELD park before it becomes
+        // an application abort.
+        throw new ParkRequired('fill_failed',
+          `non-numeric value for input[type=number] ("${field.label ?? field.id ?? field.name}")`);
+      }
+      await loc.fill(s);
+      // A typeahead/combobox with no rendered options commits by Enter; the
+      // read-back below is what verifies the control accepted it.
+      if (plan.commit === 'enter') await loc.press('Enter').catch(() => {});
+    }
   }
 
   // ---- read-back --------------------------------------------------------
-  const actual = await readBack(loc, field);
+  const actual = radioPick
+    ? await effLoc.isChecked()
+    : await readBack(loc, field);
 
   // ---- post-write guard: the form may now hold something we did not write
   if (typeof actual === 'string') {
@@ -191,7 +248,7 @@ export async function applyPlan(root, field, plan, { events, profile, dateStrate
   }
 
   // ---- did it actually take? -------------------------------------------
-  const ok = verifyMatches(plan, actual, dateStrategy);
+  const ok = radioPick ? actual === true : verifyMatches(plan, actual, dateStrategy);
   if (!ok) {
     events.emit('field_skipped', {
       field_key: plan.field_key, label: field.label, required: !!plan.required,
