@@ -199,6 +199,9 @@ export async function preflight({
   browser, url, events, adapter = null, wallMemory = null, ipClass = null,
   tenant = null, timeoutMs = 45000, contextOptions = {}, hasStorageState = false,
 }) {
+  // Adapter entry-URL normalization (interfaces.md): the url pre-flighted
+  // must be the url the run will actually drive.
+  if (adapter?.entryUrl) url = String(adapter.entryUrl(new URL(url)));
   const t0 = Date.now();
   let ctx = null;
   let status = null;

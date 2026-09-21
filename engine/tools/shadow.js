@@ -153,6 +153,14 @@ export async function shadowRun({
       'model-driven fallback\'s job and is not exercised here.');
   }
 
+  // Adapter entry-URL normalization, BEFORE the allowlist check so the url
+  // that is checked is the url that is visited. Query-only changes cannot
+  // alter the allowlist verdict anyway (canonicalUrl strips the query), but
+  // the invariant is worth keeping structural: iCIMS strips
+  // `mobile=true&needsRedirect=false`, which otherwise renders a frameless
+  // layout the adapter cannot drive (Lennox, fleet 0918).
+  if (adapter.entryUrl) url = String(adapter.entryUrl(new URL(url)));
+
   const permitted = isAllowlisted(url, allowlist);
   const tenant = adapter.tenantOf(new URL(url));
 

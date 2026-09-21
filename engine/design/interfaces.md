@@ -124,6 +124,15 @@ interface AtsAdapter {
 
   /** ---- Lifecycle ---- */
 
+  /** Normalize the ENTRY url before the first navigation. Pure URL→URL —
+   *  no network, no page access. Exists because tracker-decorated posting
+   *  links can force a layout outside the adapter's model: Simplify hands
+   *  out iCIMS links with `mobile=true&needsRedirect=false`, which renders
+   *  a frameless mobile layout (no `icims_content_iframe`) and suppresses
+   *  the redirect that would fix it (Lennox, fleet 0918). Every navigator
+   *  (shadow, preflight) applies it when present. */
+  entryUrl?(url: URL): URL;
+
   /** Called once per applier context, before the first navigation.
    *  Sets context-level things the ATS needs (extra headers, locale,
    *  default timeouts). MUST NOT navigate. */

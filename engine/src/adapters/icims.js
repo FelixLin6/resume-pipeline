@@ -61,6 +61,21 @@ const icims = {
 
   tenantOf(url) { return `icims:${url.hostname.toLowerCase()}`; },
 
+  /** Entry-URL normalization (Lennox, fleet 0918). Simplify hands out
+   *  posting links decorated with `mobile=true&needsRedirect=false`:
+   *  `mobile=true` renders the FRAMELESS mobile layout — no
+   *  `icims_content_iframe`, so formRoot resolves into nothing and the run
+   *  stages "zero form fields" — and `needsRedirect=false` suppresses the
+   *  redirect that would have fixed it. Verified live 2026-09-21: the same
+   *  posting URL without those params redirects itself into the standard
+   *  desktop iframe shape. Pure URL→URL; every other param is kept. */
+  entryUrl(url) {
+    const out = new URL(String(url));
+    out.searchParams.delete('mobile');
+    out.searchParams.delete('needsRedirect');
+    return out;
+  },
+
   // Q1: iCIMS guest-apply involves no credential, so it stays imperative —
   // and this adapter is NOT permitted to create accounts, so the engine will
   // not attach `secrets.forTenant` to its context at all.
@@ -72,7 +87,17 @@ const icims = {
       id: 'posting',
       title: 'Job posting page',
       selectorConfidence: 'verified-shadow',
-      markers: [{ urlPattern: /\/jobs\/\d+\/[^/]+\/job/i }],
+      markers: [
+        // The slug is OPTIONAL: Simplify links use the slug-less canonical
+        // `/jobs/54888/job`, and the old pattern demanded `/jobs/<id>/<slug>/
+        // job` — so the posting step could never identify on a fleet URL
+        // (Lennox, fleet 0918).
+        { urlPattern: /\/jobs\/\d+\/(?:[^/]+\/)?job\b/i },
+        // The Apply anchor is the page's distinguishing control (verified
+        // live on Lennox, both mobile and desktop shapes) — and the only
+        // marker that can fire on a fixture, whose URL carries no /jobs/ path.
+        { selector: 'a.iCIMS_ApplyOnlineButton' },
+      ],
       expects: [],
     },
 
@@ -355,6 +380,10 @@ const icims = {
   async advance(ctx, from) {
     const root = ctx.frame;
     const buttonFor = {
+      // A posting page's entry control is an ANCHOR, not a submit button —
+      // the generic fallback below found nothing and the entry click timed
+      // out (Lennox staging, 2026-09-19).
+      posting: 'a.iCIMS_ApplyOnlineButton',
       'guest-apply': '#enterEmailSubmitButton',
       'candidate-profile': 'input[type=submit][value*="Submit Profile" i], button:has-text("Submit Profile")',
     };
