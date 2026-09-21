@@ -20,6 +20,8 @@ import crypto from 'node:crypto';
 import { isIdentityKey, isProseKey } from '../schema/fieldkeys.js';
 import { VALUE_PREVIEW_MAX } from '../events/schema.js';
 import { locate } from './discovery.js';
+import { matchOption, wordBoundaryMatch } from './match.js';
+import { DEFAULT_OPTION_TEXT } from '../schema/enums.js';
 
 export class ParkRequired extends Error {
   constructor(reason, detail) { super(`${reason}: ${detail ?? ''}`); this.reason = reason; this.detail = detail; }
@@ -122,6 +124,27 @@ export async function readBack(loc, field) {
   if (field.control === 'checkbox' || field.control === 'radio') return await loc.isChecked();
   if (field.control === 'select') {
     return await loc.evaluate((el) => el.options[el.selectedIndex]?.text ?? '');
+  }
+  if (field.control === 'combobox') {
+    const typed = await loc.inputValue();
+    if (typed.trim()) return typed;
+    // A react-select-style widget commits by CLEARING the input and rendering
+    // the chosen option in a sibling "single value" node. Reading only
+    // inputValue() reported '' after every successful commit, so fleet 0918
+    // reverted every committed sponsorship/self-ID answer as a mismatch. The
+    // committed node's text IS what the form now holds, so it is the honest
+    // read-back. The hit must be UNIQUE within the ancestor searched —
+    // matching two "single value" nodes means the climb left this widget, and
+    // another field's answer must never verify this one.
+    return await loc.evaluate((el) => {
+      let node = el;
+      for (let i = 0; i < 5 && node; i++, node = node.parentElement) {
+        const hits = node.querySelectorAll?.('[class*="single-value"], [class*="singleValue"]') ?? [];
+        if (hits.length === 1 && hits[0].textContent.trim()) return hits[0].textContent.trim();
+        if (hits.length > 1) return '';
+      }
+      return '';
+    });
   }
   return await loc.inputValue();
 }
@@ -250,9 +273,14 @@ export async function applyPlan(root, field, plan, { events, profile, dateStrate
   // ---- did it actually take? -------------------------------------------
   const ok = radioPick ? actual === true : verifyMatches(plan, actual, dateStrategy);
   if (!ok) {
+    // NOT value_absent: the value was on file and was written — the CONTROL
+    // did not verifiably accept it. Fleet 0918 filed every one of these under
+    // value_absent, which read as a bank gap ("add sponsorship/self-ID keys")
+    // when the bank had the keys all along. A wrong reason corrupts the only
+    // number that says where the misses actually are.
     events.emit('field_skipped', {
       field_key: plan.field_key, label: field.label, required: !!plan.required,
-      reason: 'value_absent', detail: 'read-back did not match the intended value',
+      reason: 'readback_mismatch', detail: 'read-back did not match the intended value',
     });
     return { ok: false, actual };
   }
@@ -261,7 +289,7 @@ export async function applyPlan(root, field, plan, { events, profile, dateStrate
   return { ok: true, actual, event };
 }
 
-function verifyMatches(plan, actual, dateStrategy) {
+export function verifyMatches(plan, actual, dateStrategy) {
   if (plan.action === 'check') return actual === plan.checked;
   if (plan.action === 'select') return normalizeLoose(actual) === normalizeLoose(plan.option_text);
   if (plan.action === 'date') {
@@ -269,7 +297,27 @@ function verifyMatches(plan, actual, dateStrategy) {
     return typeof f === 'string' ? normalizeLoose(actual) === normalizeLoose(f) : false;
   }
   const want = plan.action === 'prose' ? plan.text : String(plan.value);
-  return normalizeLoose(actual) === normalizeLoose(want);
+  if (normalizeLoose(actual) === normalizeLoose(want)) return true;
+
+  // A typeahead commit renders the CHOSEN OPTION's text, not the typed
+  // candidate: type "No", press Enter, and the control now reads "No, I do
+  // not require sponsorship for employment visa status". Exact equality
+  // reverted every such commit on fleet 0918. The committed text is judged
+  // by the same matcher that governs rendered options — exact, then
+  // candidate equality, then word-boundary containment, never substring —
+  // so F8 stands: a candidate "male" against a committed "Female" still
+  // fails, and a commit the vocabulary cannot claim is still a mismatch.
+  if (plan.commit === 'enter') {
+    if (plan.canonical) {
+      const candidates = [...new Set(
+        [plan.option_text, String(plan.value), ...(DEFAULT_OPTION_TEXT[plan.canonical] ?? [])]
+          .filter(Boolean)
+      )];
+      return matchOption(plan.canonical, [actual], { [plan.canonical]: candidates }).matched;
+    }
+    return wordBoundaryMatch(want, actual);
+  }
+  return false;
 }
 
 const normalizeLoose = (s) => String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();

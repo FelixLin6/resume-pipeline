@@ -56,6 +56,14 @@ export const SKIP_REASONS = Object.freeze([
   //                   pattern and received line 1's value). The duplicate is
   //                   refused and named, not silently overwritten.
   'fill_failed', 'already_filled',
+  // Fleet 0918: a value that WAS on file, WAS written, and then failed the
+  // read-back verification. These were filed under value_absent, which reads
+  // as a bank gap — the post-fleet investigation chased "missing
+  // sponsorship/self-ID keys" the bank had held since phase 2. The real
+  // causes (react-select commits rendering outside the input; committed
+  // option text longer than the typed candidate) were invisible because the
+  // reason pointed at the wrong layer.
+  'readback_mismatch',
 ]);
 
 /** gate_result.kind — now validated. The droplet's probe pass showed why the

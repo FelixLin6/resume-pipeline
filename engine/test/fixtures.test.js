@@ -382,7 +382,10 @@ test('a read-back that does not match is reported, not assumed', async (t) => {
       'the fixture reproduces the recorded stripping behaviour');
     assert.equal(res.ok, false);
     const skip = events.events.find((e) => e.type === 'field_skipped');
-    assert.equal(skip.data.reason, 'value_absent');
+    // The reason names the layer that failed: the value was on file and was
+    // written — the CONTROL mangled it. value_absent here sent the fleet-0918
+    // investigation to the wrong layer (the bank).
+    assert.equal(skip.data.reason, 'readback_mismatch');
     assert.match(skip.data.detail, /read-back/);
   } finally { await close(); }
 });

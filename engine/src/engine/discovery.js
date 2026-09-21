@@ -199,7 +199,12 @@ export async function discover(root, { includeHidden = false, noiseSelectors = [
  * cannot drift apart.
  */
 export function locate(root, field) {
-  if (field.id) return root.locator(`#${cssEscape(field.id)}`);
+  // The id is matched by ATTRIBUTE, never by a `#` selector: Greenhouse's
+  // demographic controls carry all-digit ids, and `#4462...` is a CSS parse
+  // error no amount of punctuation-escaping fixes (fleet 0918:
+  // selfid.ethnicity died as fill_failed on "'#<digits>' is not a valid
+  // selector"). The attribute form takes any id verbatim.
+  if (field.id) return root.locator(`[id="${String(field.id).replace(/"/g, '\\"')}"]`);
   if (field.name) return root.locator(`${field.tag}[name="${cssEscape(field.name)}"]`);
   if (field.automationId) return root.locator(`[data-automation-id="${cssEscape(field.automationId)}"]`);
   return root.locator(CONTROL_SELECTOR).nth(field.index);

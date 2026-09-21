@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Greenhouse-style react-select demographics</title></head>
+<body>
+<!--
+  Reproduces the fleet-0918 sponsorship/self-ID failure shape:
+
+  1. The controls carry ALL-DIGIT ids (Greenhouse custom-question ids), so a
+     `#`-selector re-locate is a CSS parse error ("'#4462546003' is not a
+     valid selector" — the selfid.ethnicity fill_failed).
+  2. The widget is a react-select: an option-less combobox input that, on
+     Enter, commits the first option whose text starts with the typed prefix,
+     renders it in a sibling `.select__single-value` node, and CLEARS the
+     input. inputValue() after a successful commit is ''.
+  3. The gender widget filters by SUBSTRING (like real react-select), so
+     typing "Male" commits "Female" — the F8 shape on the commit path. The
+     read-back verifier must refuse that commit.
+-->
+<form>
+  <div class="question">
+    <label for="4462546003">Will you now or in the future require sponsorship for employment visa status?*</label>
+    <div class="select">
+      <div class="select__control">
+        <div class="select__value-container">
+          <div class="select__single-value"></div>
+          <div class="select__input-container">
+            <input id="4462546003" role="combobox" aria-expanded="false" autocomplete="off"
+                   data-options='["Yes, now","Yes, in the future","No, I do not require sponsorship for employment visa status"]'
+                   data-filter="prefix">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="question">
+    <label for="4462546007">Gender</label>
+    <div class="select">
+      <div class="select__control">
+        <div class="select__value-container">
+          <div class="select__single-value"></div>
+          <div class="select__input-container">
+            <input id="4462546007" role="combobox" aria-expanded="false" autocomplete="off"
+                   data-options='["Female","Male","Decline To Self Identify"]'
+                   data-filter="substring">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+<script>
+  for (const input of document.querySelectorAll('input[role=combobox]')) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const typed = input.value.toLowerCase();
+      if (!typed) return;
+      const options = JSON.parse(input.dataset.options);
+      const hit = input.dataset.filter === 'prefix'
+        ? options.find((o) => o.toLowerCase().startsWith(typed))
+        : options.find((o) => o.toLowerCase().includes(typed));
+      if (!hit) return;
+      const sv = input.closest('.select__value-container').querySelector('.select__single-value');
+      sv.textContent = hit;
+      input.value = '';
+    });
+  }
+</script>
+</body>
+</html>
