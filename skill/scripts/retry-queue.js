@@ -109,7 +109,10 @@ const latest = new Map(); // key → record (last seen wins; ledger.md read firs
 for (const day of days) {
   const dir = path.join(DROPS, day);
   if (!fs.existsSync(dir)) { console.error(`warning: ${dir} missing, skipped`); continue; }
-  const files = ['ledger.md', ...fs.readdirSync(dir).filter(f => /^ledger-part\d*\.md$/.test(f)).sort()]
+  // Numeric part order: a plain .sort() put part10 before part2, so with >9 parts
+  // "last seen wins" crowned the wrong block (worked around by renaming on 09-22).
+  const partNum = f => parseInt((f.match(/ledger-part(\d+)/) || [])[1] || '0', 10);
+  const files = ['ledger.md', ...fs.readdirSync(dir).filter(f => /^ledger-part\d*\.md$/.test(f)).sort((a, b) => partNum(a) - partNum(b))]
     .map(f => path.join(dir, f)).filter(fs.existsSync);
   for (const f of files) for (const r of parseBlocks(fs.readFileSync(f, 'utf8'), day, f)) {
     // History-aware: an UNCLASSIFIED park must not wash out an earlier wall for the same key

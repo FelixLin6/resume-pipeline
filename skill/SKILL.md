@@ -350,6 +350,20 @@ branch to the last tailored commit so Stage 3's single push still works.
 The batch's summary line (tailored / skipped / failed, dropped JD skills,
 study list) goes into the orchestrator's notes for the DM.
 
+**No-tailor mode (Felix 2026-09-22):** tailoring can be disabled — every
+selected row then gets the BASE résumé (compiled once from my_resume
+`main`) instead of a per-JD tailored Skills section; repost detection
+(jd-skills add) still runs, and `tailor.json` rows still carry `status:
+tailored` plus `mode: "base-resume"` and a valid `pdf` path, so Stage 2/3
+work unchanged (the `apply` branch is not moved — there are no tailored
+commits). Two ways to enable: per-run `--no-tailor` on `tailor-batch.js`,
+or the standing toggle file `resume-drops/state/no-tailor.flag` (git-synced,
+same pattern as `assist.flag`) which every run honors until the file is
+removed; `--force-tailor` overrides the flag file for one run. Rows already
+`tailored` in base mode are not re-tailored on a later run without
+`--force`. The batch's startup output names the active mode — quote it in
+the DM so Felix knows which résumé went out.
+
 ### Stage 2 — APPLY (agent `job-applier` × N, parallel)
 
 Input per instance: the joblist path, the tailor.json path, its part index

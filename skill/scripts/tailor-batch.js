@@ -26,6 +26,12 @@
  *                   [--day-dir <dir>]    PDF destination (default resume-drops/<date>/)
  *                   [--out <tailor.json>] (default <run dir>/tailor.json, merged on re-run)
  *                   [--dry-run]          print the plan, run nothing
+ *                   [--no-tailor]        skip per-JD tailoring: every row gets the BASE
+ *                                        résumé compiled from my_resume main (repost
+ *                                        detection still runs). Also enabled by the
+ *                                        standing toggle file resume-drops/state/no-tailor.flag
+ *                                        (git-synced, same pattern as assist.flag);
+ *                                        [--force-tailor] overrides the flag file for one run.
  *
  * Output: tailor.json — per key {status: tailored|skipped-repost|failed, pdf,
  * kept/jd_kept/filler_kept, dropped_jd, study, error}. Appliers read the PDF
@@ -81,6 +87,11 @@ const outPath = flags.out && flags.out !== true ? path.resolve(flags.out) : path
 const wantKeys = flags.keys && flags.keys !== true ? new Set(String(flags.keys).split(',').map(s => s.trim()).filter(Boolean)) : null;
 const lanesN = Math.max(1, parseInt(flags.lanes || String(Math.min(4, Math.max(1, os.cpus().length - 1))), 10));
 
+const NO_TAILOR_FLAG_FILE = path.join(DROPS, 'state', 'no-tailor.flag');
+const noTailor = !!flags['no-tailor'] || (fs.existsSync(NO_TAILOR_FLAG_FILE) && !flags['force-tailor']);
+const noTailorSource = flags['no-tailor'] ? '--no-tailor' : `${NO_TAILOR_FLAG_FILE} exists`;
+const TECTONIC = `${HOME}/zylos/workspace/bin/tectonic`;
+
 const prior = fs.existsSync(outPath) ? JSON.parse(fs.readFileSync(outPath, 'utf8')) : { date, rows: {} };
 prior.rows ||= {};
 
@@ -100,6 +111,7 @@ const missing = wantKeys ? [...wantKeys].filter(k => !rows.some(r => r.key === k
 if (missing.length) console.error(`warning: ${missing.length} requested key(s) are not selected rows in the joblist: ${missing.join(', ')}`);
 
 console.log(`tailor-batch ${date}: ${rows.length} selected row(s), ${todo.length} to tailor, ${lanesN} lane(s)\n  PDFs → ${dayDir}\n  report → ${outPath}`);
+if (noTailor) console.log(`  MODE: NO-TAILOR (${noTailorSource}) — every row gets the base résumé from my_resume main; repost detection still runs`);
 if (flags['dry-run']) {
   for (const r of todo) console.log(`  - [${r.email_order ?? '?'}] ${r.company} — ${r.title} (${categoryFor(r)}, ${(r.skills || []).length} skills)`);
   process.exit(0);
@@ -113,20 +125,25 @@ function git(dir, ...args) {
   return r.stdout.trim();
 }
 fs.mkdirSync(LANES_DIR, { recursive: true });
-try { git(REPO, 'worktree', 'prune'); } catch {}
 const lanes = [];
-for (let i = 1; i <= lanesN; i++) {
-  const dir = path.join(LANES_DIR, `lane${i}`);
-  if (!fs.existsSync(path.join(dir, '.git'))) {
-    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
-    git(REPO, 'worktree', 'add', '--detach', dir, 'main');
-  } else {
-    // apply-skills.js re-forks from main itself; just make sure the lane is not
-    // sitting on foreign changes (it refuses to run over those, by design).
-    const dirty = git(dir, 'status', '--porcelain').split('\n').filter(Boolean).filter(l => !/resume\.(tex|pdf)$/.test(l));
-    if (dirty.length) throw new Error(`lane worktree ${dir} has foreign changes:\n${dirty.join('\n')}`);
+if (noTailor) {
+  // No worktrees needed: one pseudo-lane, rows are dataset-add + file copy only.
+  lanes.push({ i: 0, dir: null, branch: null });
+} else {
+  try { git(REPO, 'worktree', 'prune'); } catch {}
+  for (let i = 1; i <= lanesN; i++) {
+    const dir = path.join(LANES_DIR, `lane${i}`);
+    if (!fs.existsSync(path.join(dir, '.git'))) {
+      if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+      git(REPO, 'worktree', 'add', '--detach', dir, 'main');
+    } else {
+      // apply-skills.js re-forks from main itself; just make sure the lane is not
+      // sitting on foreign changes (it refuses to run over those, by design).
+      const dirty = git(dir, 'status', '--porcelain').split('\n').filter(Boolean).filter(l => !/resume\.(tex|pdf)$/.test(l));
+      if (dirty.length) throw new Error(`lane worktree ${dir} has foreign changes:\n${dirty.join('\n')}`);
+    }
+    lanes.push({ i, dir, branch: `apply-lane${i}` });
   }
-  lanes.push({ i, dir, branch: `apply-lane${i}` });
 }
 fs.mkdirSync(dayDir, { recursive: true });
 fs.mkdirSync(path.join(runDir, 'tailor'), { recursive: true });
@@ -172,31 +189,54 @@ function jdInputFor(row) {
   return { skills: chips, boost: [], source: 'simplify', matched: 0, note: 'no JD text on file, raw chips' };
 }
 
+// --no-tailor: compile resume.tex from my_resume main once; every row copies this PDF.
+let basePdf = null;
+function buildBasePdf() {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'base-resume-'));
+  fs.writeFileSync(path.join(tmp, 'resume.tex'), git(REPO, 'show', 'main:resume.tex') + '\n');
+  const r = spawnSync(TECTONIC, ['resume.tex'], { cwd: tmp, encoding: 'utf8' });
+  const pdf = path.join(tmp, 'resume.pdf');
+  if (r.status !== 0 || !fs.existsSync(pdf)) {
+    throw new Error(`base résumé compile failed (tectonic on main:resume.tex): ${((r.stderr || r.stdout) || '').trim().slice(-400)}`);
+  }
+  return pdf;
+}
+
 async function tailorRow(row, lane) {
   const input = jdInputFor(row);
   const skills = input.skills;
   const rec = { company: row.company, title: row.title, lane: lane.i, started: new Date().toISOString(),
     skills_source: input.source, jd_matched: input.matched, chips_kept: input.chips_kept || 0, ...(input.note ? { source_note: input.note } : {}) };
-  if (!skills.length) return { ...rec, status: 'failed', error: 'row has no skills list (no JD text and no chips)' };
+  if (!skills.length && !noTailor) return { ...rec, status: 'failed', error: 'row has no skills list (no JD text and no chips)' };
   const stdin = skills.join('\n') + '\n';
 
   // 1. dataset row — a duplicate refusal means repost: mark seen, no tailoring.
-  const addArgs = ['add', '--role', row.title, '--role-clean', row.role_clean || row.title,
-    '--company', row.company, '--category', categoryFor(row), '--level', 'intern',
-    '--source', input.source];
-  if (row.apply_link) addArgs.push('--url', row.apply_link);
-  const add = await run(process.execPath, [JD_SKILLS, ...addArgs], { stdin });
-  if (add.code !== 0) {
-    if (/already have/i.test(add.err)) {
-      await run(process.execPath, [path.join(SCRIPTS, 'pipeline-check.js'), 'mark', row.key]);
-      return { ...rec, status: 'skipped-repost', error: add.err.trim().split('\n')[0] };
+  //    (in no-tailor mode a skill-less row skips the dataset add but still applies)
+  if (skills.length) {
+    const addArgs = ['add', '--role', row.title, '--role-clean', row.role_clean || row.title,
+      '--company', row.company, '--category', categoryFor(row), '--level', 'intern',
+      '--source', input.source];
+    if (row.apply_link) addArgs.push('--url', row.apply_link);
+    const add = await run(process.execPath, [JD_SKILLS, ...addArgs], { stdin });
+    if (add.code !== 0) {
+      if (/already have/i.test(add.err)) {
+        await run(process.execPath, [path.join(SCRIPTS, 'pipeline-check.js'), 'mark', row.key]);
+        return { ...rec, status: 'skipped-repost', error: add.err.trim().split('\n')[0] };
+      }
+      return { ...rec, status: 'failed', error: `jd-skills add: ${add.err.trim()}` };
     }
-    return { ...rec, status: 'failed', error: `jd-skills add: ${add.err.trim()}` };
+  }
+
+  const pdfName = `${date}-${slug(row.company)}-${slug(row.title).slice(0, 48)}.pdf`.replace(/-+\.pdf$/, '.pdf');
+  const pdf = path.join(dayDir, pdfName);
+
+  if (noTailor) {
+    fs.copyFileSync(basePdf, pdf);
+    return { ...rec, status: 'tailored', mode: 'base-resume', pdf, pdf_name: pdfName,
+      kept: 0, jd_kept: [], filler_kept: 0, dropped_jd: [], study: [] };
   }
 
   // 2. tailor in this lane's worktree, PDF straight into the day folder.
-  const pdfName = `${date}-${slug(row.company)}-${slug(row.title).slice(0, 48)}.pdf`.replace(/-+\.pdf$/, '.pdf');
-  const pdf = path.join(dayDir, pdfName);
   const report = path.join(runDir, 'tailor', `${slug(row.key).slice(0, 60)}.json`);
   const ap = await run(process.execPath, [path.join(SCRIPTS, 'apply-skills.js'),
     '--company', row.company, '--role', row.title, '--out', pdf, '--json', report,
@@ -219,6 +259,7 @@ async function tailorRow(row, lane) {
   const queue = todo.slice();
   const results = {};
   const t0 = Date.now();
+  if (noTailor) basePdf = buildBasePdf();
   async function worker(lane) {
     for (;;) {
       const row = queue.shift();
@@ -226,7 +267,9 @@ async function tailorRow(row, lane) {
       let res;
       try { res = await tailorRow(row, lane); } catch (e) { res = { company: row.company, title: row.title, status: 'failed', error: e.message }; }
       results[row.key] = res;
-      const tag = res.status === 'tailored' ? `${res.kept} skills (${res.jd_kept.length} JD), ${res.fit}` : res.error;
+      const tag = res.status !== 'tailored' ? res.error
+        : res.mode === 'base-resume' ? 'base résumé (no-tailor)'
+        : `${res.kept} skills (${res.jd_kept.length} JD), ${res.fit}`;
       console.log(`  [lane${lane.i}] ${res.status.padEnd(15)} ${row.company} — ${row.title}: ${tag}`);
     }
   }

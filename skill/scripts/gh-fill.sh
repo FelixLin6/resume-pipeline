@@ -6,7 +6,9 @@ P="$(dirname "$0")/gh-pick.sh"
 ref(){ zylos-browser snapshot -i 2>/dev/null | grep -F "$1" | head -1 | sed -E 's/.*\[ref=(e[0-9]+)\].*/\1/'; }
 zylos-browser fill "$(ref 'textbox "First Name"')" "Felix" >/dev/null
 zylos-browser fill "$(ref 'textbox "Last Name"')" "Lin" >/dev/null
-zylos-browser fill "$(ref 'textbox "Email"')" "felixl0808@gmail.com" >/dev/null
+# Felix, Discord 2026-09-21: "for my email in forms, use felixl@andrew.cmu.edu
+# since that gets the OAs in my school email" — supersedes the gmail rule.
+zylos-browser fill "$(ref 'textbox "Email"')" "felixl@andrew.cmu.edu" >/dev/null
 zylos-browser fill "$(ref 'textbox "Phone"')" "9499810389" >/dev/null
 L=$(ref 'textbox "LinkedIn'); [ -n "$L" ] && zylos-browser fill "$L" "https://www.linkedin.com/in/felix-lin-52048b29a/" >/dev/null
 "$P" "Country" "United States +1" >/dev/null

@@ -76,8 +76,20 @@ already tailored (2026-09-02) and everything that can be a script is one.
    phone-number collision, J&J Workday sign-in loop). Google-sign-in gates
    (Eightfold, Microsoft) may be completed while Felix's Google session is
    warm. Do NOT wait or scan for submission-confirmation emails — Stage 3's
-   job. Two hard limits: (1) codes sent to the CMU andrew.cmu.edu address
-   stay blocked — no access; (2) creating an APPLE ID is Felix's explicit
+   job. **EMAIL SPLIT (Felix, Discord 2026-09-22, C4 rows 3879+3881;
+   refines the 2026-09-21 rule — see profile email.split_provenance):
+   CONTACT email on forms is felixl@andrew.cmu.edu** (he wants OAs in his
+   school inbox), **but NEW ATS account registrations/logins use
+   felixl0808@gmail.com** so verify links/codes stay IMAP-reachable.
+   One-email embedded forms (no account) get the CMU address. If a contact
+   field prefills from the account: edit it to CMU when editable, else
+   leave it and note that in your ledger block.
+   Because the pipeline has NO access to that inbox, every applier MUST log
+   the full submission content (each question and the exact answer entered)
+   in its ledger part — the pushed repo record replaces inbox confirmation
+   as reconciliation. Two hard limits: (1) codes/magic-links sent to the CMU
+   address are unreachable — a flow that requires one parks as
+   `needs-felix` with the exact prompt recorded; (2) creating an APPLE ID is Felix's explicit
    personal carve-out (identity/2FA, his direct call 2026-09-02) — park as
    `needs-felix` with `unlock: say 'apple ok'`, never create one.
 
