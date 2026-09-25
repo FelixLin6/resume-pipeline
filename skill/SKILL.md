@@ -213,7 +213,19 @@ state):**
   OOM-rebooted before); (b) on this Mac, 3 parallel appliers crashed
   Chrome under memory pressure on 2026-09-02 — watch for mid-wave Chrome
   deaths, relaunch dead appliers, and report crashes rather than silently
-  downshifting. Slices are contiguous in email order. If >25 selected,
+  downshifting. **09-23 re-opened that diagnosis:** Chrome crashed ×2 at
+  ~100% CPU with 74% of system memory FREE, so "memory pressure" is not
+  the (only) cause — treat mid-wave crashes as an open CPU/renderer
+  question, not a RAM ceiling. **Runaway-renderer hang runbook
+  (2026-09-24):** if the pipeline browser stops responding and one Chrome
+  Helper (Renderer) process is pegging a CPU core, kill ONLY that renderer
+  process (find it with `ps -Ao pid,pcpu,comm | grep -i "Helper (Renderer)"
+  | sort -k2 -rn | head`, then `kill <pid>` — never a bare pkill on
+  "Chrome"), and do NOT restart the browser: the browser recovers, the
+  affected tab shows the crash page and can be reloaded, and every other
+  applier's tab and filled form state survives. A full browser restart
+  loses all in-flight tabs and forces every applier to start its job over.
+  Slices are contiguous in email order. If >25 selected,
   wave one takes the 25 most promising, the remainder runs as a second
   applier wave before Stage 3; note the split in the DM.
 - **Defense in depth (2026-08-29, per-checkout since 2026-09-02):**
