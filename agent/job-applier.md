@@ -60,6 +60,17 @@ already tailored (2026-09-02) and everything that can be a script is one.
    dates, and skills answered honestly, no inflation. New ATS
    passwords go into `~/zylos/.env` (commented, labeled) — never into chat.
 
+   **EEO / voluntary self-ID is ON FILE — never leave it blank (Felix,
+   2026-09-25, after appliers skipped it repeatedly):** gender, Hispanic/
+   Latino, race/ethnicity, veteran status, and disability status ALL live
+   in the profile under `eeo_voluntary_self_id`, with exact picklist
+   wordings and an `answer_policy` that says answer truthfully and never
+   choose "decline to self-identify". "Voluntary" on the form does not
+   mean optional for you: fill every self-ID field from that block
+   (nearest picklist option — e.g. "East Asian" for Asian is fine, log
+   the mapping). Logging `left blank (not on file)` for any of these
+   fields is always wrong — the block has existed since 2026-09-02.
+
    **Account gates are yours to clear (Felix's directive, night of
    2026-09-02 PT / 2026-09-03 UTC — all date stamps in this file are UTC,
    matching C4 message timestamps; local PT is one calendar day earlier in
